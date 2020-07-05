@@ -14,6 +14,9 @@ wm geometry . "700x400+[expr [winfo vrootwidth .]/2-350]+[expr [winfo vrootheigh
 #	set Files [set ::Ui::MainPane].files
 #}
 
+namespace eval RootWindow {
+	set path_name {.}
+}
 namespace eval Util {
 	
 }
@@ -127,7 +130,7 @@ proc Menu::create args {
 	$Menu::page add separator
 	$Menu::page add command -label Move -command {$whoobject rename $whocalled }
 	
-	. config -menu $Menu::root_name
+	$RootWindow::path_name config -menu $Menu::root_name
 }
 namespace eval Menu::DocPage {
 	#later
