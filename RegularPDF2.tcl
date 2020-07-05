@@ -60,7 +60,7 @@ proc About::create {args} {
 	wm withdraw $About::path_name
 	wm protocol $About::path_name WM_DELETE_WINDOW {wm withdraw $About::path_name}
 	wm title $About::path_name About
-	#place [button .b -command [list wm deicon $Ui::About]] -x 0 -y 0
+	place [button .b -command About::show] -x 0 -y 0
 	#puts Aboutcreate
 }
 
@@ -73,7 +73,7 @@ namespace eval MainPane {
 }
 
 proc MainPane::create args {
-	place [panedwindow $MainPane::path_name -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0] -x 0 -y 0 -relwidth 1 -relheight 0.9
+	place [panedwindow $MainPane::path_name -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0] -x 0 -y 50 -relwidth 1 -relheight 0.9
 	#puts MainPanecreate
 }
 
@@ -88,7 +88,7 @@ proc Files::create {args} {
 
 namespace eval Menu {
 	set root_name .menu
-	set sub_help [set Menu::root_name].help
+	set sub_help [set ::Menu::root_name].help
 	set document .mDoc
 	set page .mPage
 }
@@ -99,29 +99,35 @@ proc Menu::create args {
 	menu $Menu::root_name -tearoff 0
 	menu $Menu::sub_help -tearoff 0
 	
+
 	$Menu::sub_help add command -label About -command About::show 
 	$Menu::root_name add cascade -label Help -menu $Menu::sub_help
 	$Menu::root_name add command -label Console -command Util::show_console
 	$Menu::root_name add command -label Debug -command Util::debug
 
+	#Off-screen 'Context' Menus
+	menu $Menu::document -tearoff 0
+	menu $Menu::page -tearoff 0
+	
+	#Context Menu for Document Buttons
 	$Menu::document add command -label Delete -command {puts .mDoc_delete}
 	$Menu::document add separator
 	$Menu::document add command -label Clone -command {puts .mDoc_clone}
 	$Menu::document add separator
 	
-	#Context Menu for Pages
 	
-	$Menu::Page add command -label {Add New Page Above} -command {$whoobject up $whocalled}
-	$Menu::Page add separator
-	$Menu::Page add command -label {Add New Page Below} -command {$whoobject down $whocalled}
-	$Menu::Page add separator
+	#Context Menu for Page Buttons
+	$Menu::page add command -label {Add New Page Above} -command {$whoobject up $whocalled}
+	$Menu::page add separator
+	$Menu::page add command -label {Add New Page Below} -command {$whoobject down $whocalled}
+	$Menu::page add separator
+	$Menu::page add command -label Delete -command { .mDoc_delete}
+	$Menu::page add separator
+	$Menu::page add command -label Clone -command {$whoobject clone $whocalled }
+	$Menu::page add separator
+	$Menu::page add command -label Move -command {$whoobject rename $whocalled }
 	
-	
-	$Menu::Page add command -label Delete -command { .mDoc_delete}
-	$Menu::Page add separator
-	$Menu::Page add command -label Clone -command {$whoobject clone $whocalled }
-	$Menu::Page add separator
-	$Menu::Page add command -label Move -command {$whoobject rename $whocalled }
+	. config -menu $Menu::root_name
 }
 namespace eval Menu::DocPage {
 	#later
@@ -131,8 +137,10 @@ proc main { } {
 	
 	Menu::create
 	MainPane::create
-	About::create
+	
 	Files::create
+	About::create
+	
 }
 
 main
