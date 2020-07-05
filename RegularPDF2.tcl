@@ -104,35 +104,29 @@ proc Menu::create args {
 	$Menu::root_name add command -label Console -command Util::show_console
 	$Menu::root_name add command -label Debug -command Util::debug
 
-	Menu::create_off_screen
-}
-namespace mDocPage 
-proc Menu::create_off_screen args {
-	.mDoc add command -label Delete -command {puts .mDoc_delete}
-	.mDoc add separator
-	
-	.mDoc add command -label Clone -command {puts .mDoc_clone}
-	.mDoc add separator
-	
+	$Menu::document add command -label Delete -command {puts .mDoc_delete}
+	$Menu::document add separator
+	$Menu::document add command -label Clone -command {puts .mDoc_clone}
+	$Menu::document add separator
 	
 	#Context Menu for Pages
 	
-	.mPage add command -label {Add New Page Above} -command {$whoobject up $whocalled}
-	.mPage add separator
-	
-	.mPage add command -label {Add New Page Below} -command {$whoobject down $whocalled}
-	.mPage add separator
-	
-	
-	.mPage add command -label Delete -command { .mDoc_delete}
-	.mPage add separator
-	
-	.mPage add command -label Clone -command {$whoobject clone $whocalled }
-	.mPage add separator
+	$Menu::Page add command -label {Add New Page Above} -command {$whoobject up $whocalled}
+	$Menu::Page add separator
+	$Menu::Page add command -label {Add New Page Below} -command {$whoobject down $whocalled}
+	$Menu::Page add separator
 	
 	
-	.mPage add command -label Move -command {$whoobject rename $whocalled }
+	$Menu::Page add command -label Delete -command { .mDoc_delete}
+	$Menu::Page add separator
+	$Menu::Page add command -label Clone -command {$whoobject clone $whocalled }
+	$Menu::Page add separator
+	$Menu::Page add command -label Move -command {$whoobject rename $whocalled }
 }
+namespace eval Menu::DocPage {
+	#later
+}
+
 proc main { } {
 	
 	Menu::create
