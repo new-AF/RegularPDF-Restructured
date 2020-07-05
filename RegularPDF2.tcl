@@ -63,7 +63,7 @@ proc About::create {args} {
 	wm withdraw $About::path_name
 	wm protocol $About::path_name WM_DELETE_WINDOW {wm withdraw $About::path_name}
 	wm title $About::path_name About
-	place [button .b -command About::show] -x 0 -y 0
+	place [button [set RootWindow::path_name].b -text TempButton -command About::show] -x 0 -y 0
 	#puts Aboutcreate
 }
 
@@ -76,7 +76,8 @@ namespace eval MainPane {
 }
 
 proc MainPane::create args {
-	place [panedwindow $MainPane::path_name -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0] -x 0 -y 50 -relwidth 1 -relheight 0.9
+	panedwindow $MainPane::path_name -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -bg coral
+	pack $MainPane::path_name -expand 1 -fill both -side bottom
 	#puts MainPanecreate
 }
 
