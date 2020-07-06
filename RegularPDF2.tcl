@@ -101,7 +101,7 @@ proc Menu::create args {
 	menu $Menu::root_name -tearoff 0
 	menu $Menu::sub_help -tearoff 0
 	
-
+	#On-screen MenuBar-type ones.
 	$Menu::sub_help add command -label About -command About::show 
 	$Menu::root_name add cascade -label Help -menu $Menu::sub_help
 	$Menu::root_name add command -label Console -command Util::show_console
@@ -111,24 +111,25 @@ proc Menu::create args {
 	menu $Menu::document -tearoff 0
 	menu $Menu::page -tearoff 0
 	
-	#Context Menu for Document Buttons
-	$Menu::document add command -label Delete -command {puts .mDoc_delete}
-	$Menu::document add separator
-	$Menu::document add command -label Clone -command {puts .mDoc_clone}
-	$Menu::document add separator
+		#Context Menu for Document Buttons
+		$Menu::document add command -label Delete -command {puts .mDoc_delete}
+		$Menu::document add separator
+		$Menu::document add command -label Clone -command {puts .mDoc_clone}
+		$Menu::document add separator
 	
 	
-	#Context Menu for Page Buttons
-	$Menu::page add command -label {Add New Page Above} -command {$whoobject up $whocalled}
-	$Menu::page add separator
-	$Menu::page add command -label {Add New Page Below} -command {$whoobject down $whocalled}
-	$Menu::page add separator
-	$Menu::page add command -label Delete -command { .mDoc_delete}
-	$Menu::page add separator
-	$Menu::page add command -label Clone -command {$whoobject clone $whocalled }
-	$Menu::page add separator
-	$Menu::page add command -label Move -command {$whoobject rename $whocalled }
+		#Context Menu for Page Buttons
+		$Menu::page add command -label {Add New Page Above} -command {$whoobject up $whocalled}
+		$Menu::page add separator
+		$Menu::page add command -label {Add New Page Below} -command {$whoobject down $whocalled}
+		$Menu::page add separator
+		$Menu::page add command -label Delete -command { .mDoc_delete}
+		$Menu::page add separator
+		$Menu::page add command -label Clone -command {$whoobject clone $whocalled }
+		$Menu::page add separator
+		$Menu::page add command -label Move -command {$whoobject rename $whocalled }
 	
+	#Enview On-screen ones
 	$RootWindow::path config -menu $Menu::root_name
 }
 namespace eval Menu::DocPage {
@@ -141,18 +142,25 @@ namespace eval NorthBar {
 proc NorthBar::create args {
 	frame $NorthBar::path -borderwidth $NorthBar::border_width -relief flat
 	pack $NorthBar::path -side top
+	# For Testing purposes only.
 	pack [button ${NorthBar::path}.b -text NorthBar] -expand 1
 	
 }
 proc main { } {
 	
+	#Position the Root window
 	RootWindow::modify
+	#Create on and off-screen Menu's. Enview on-screen ones.
 	Menu::create
+	#create and Enview (cause it to be visible) Top strip/Toolbar
 	NorthBar::create
+	#create and Enview [panedwindow]
 	MainPane::create
+	#in-memory create a [label frame]
 	Files::create
+	#create a [toplevel] window, make it invisible (iconify it), and 'bind' the X button
 	About::create
-	# Before window creation and visibility it's all 0 ...
+	# Before window creation and visibility it's all 0 0 0...
 	puts [list -x [winfo x $MainPane::path] -y [winfo y $MainPane::path] \
 		  -rootx [winfo rootx $MainPane::path] -rooty [winfo rooty $MainPane::path] \
 		  -vrootx [winfo vrootx $MainPane::path] -vrooty [winfo vrooty $MainPane::path]]
