@@ -157,12 +157,14 @@ namespace eval NorthBar {
 	set space_block_count 0
 }
 proc NorthBar::create args {
-	frame $NorthBar::path -borderwidth $NorthBar::border_width -relief flat -background gray
+	frame $NorthBar::path -borderwidth $NorthBar::border_width -relief flat -background lightblue
 	pack $NorthBar::path -side top -fill x
 	# For Testing purposes only.
 		pack [button ${NorthBar::path}.b -text NorthBar] -expand 1
+		# 2 Separators
 		NorthBar::new_space_block
 		NorthBar::new_space_block
+		NorthBar::new_button name -text Debug -relief solid pack -expand 0 -padx 2  -with_separator
 }
 proc NorthBar::new_space_block {} {
 	# specify the button's attributes to make it behave as a textless block, and then call new_button to create it.
@@ -172,6 +174,11 @@ proc NorthBar::new_space_block {} {
 }
 proc NorthBar::new_button args {
 	
+	
+	#if vertical ttk::separator should be put, after the button.							# if vertical is not -1, pop it from $args.
+	set vertical [lsearch $args -with_separator] ;											if {$vertical != -1} { set args [lreplace $args $vertical $vertical] ; set vertical 1} else {set vertical 0}
+	
+
 	#the name/ partial window path name. 													Then 'right shift' the arguments
 	set n [string cat $NorthBar::path . [lindex $args 0]] ;										set args [lrange $args 1 end]
 		
@@ -202,7 +209,7 @@ proc NorthBar::new_button args {
 	#{*}$Geometry
 	#To ensure conformity to NorthBar::direction.
 	switch [lindex $Geometry 0] {
-		pack { {*}$Geometry -side $NorthBar::direction }
+		pack { {*}$Geometry -side $NorthBar::direction ; if $vertical { pack [ttk::separator [string cat $b _separator] -orient vertical] -after $b -side $NorthBar::direction -fill y -expand 0 -padx 1 } }
 		grid -
 		place { throw [list UNSUPPORTED UNSUPPORTED_GEOMETRY_MANAGER] [list Only pack GM currently is supported] }
 	}
