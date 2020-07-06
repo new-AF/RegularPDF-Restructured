@@ -146,7 +146,7 @@ namespace eval Menu::DocPage {
 }
 namespace eval NorthBar {
 	set path .toolbar
-	set border_width 5
+	set border_width 0
 	
 	# Left to right, laying of elements.
 	set direction left
@@ -160,23 +160,25 @@ proc NorthBar::create args {
 	frame $NorthBar::path -borderwidth $NorthBar::border_width -relief flat -background lightblue
 	pack $NorthBar::path -side top -fill x
 	# For Testing purposes only.
-		pack [button ${NorthBar::path}.b -text NorthBar] -expand 1
+		#pack [button ${NorthBar::path}.b -text NorthBar] -expand 1
 		# 2 Separators
 		NorthBar::new_space_block
 		NorthBar::new_space_block
 		NorthBar::new_button name -text Debug -relief solid pack -expand 0 -padx 2  -with_separator
 }
-proc NorthBar::new_space_block {} {
+proc NorthBar::new_space_block args {
+	
 	# specify the button's attributes to make it behave as a textless block, and then call new_button to create it.
-	NorthBar::new_button space_block_[incr NorthBar::space_block_count] -text [list Space Block] -state disabled -relief flat pack -expand 0 -fill none
+	set tmp [NorthBar::new_button space_block_[incr NorthBar::space_block_count] -background [$NorthBar::path cget -background] -state disabled -relief flat pack -expand 0 -fill y]
+	puts [list [winfo width $tmp]  [winfo reqwidth $tmp]]
 	
-	
+	return $tmp
 }
 proc NorthBar::new_button args {
 	
 	
 	#if vertical ttk::separator should be put, after the button.							# if vertical is not -1, pop it from $args.
-	set vertical [lsearch $args -with_separator] ;											if {$vertical != -1} { set args [lreplace $args $vertical $vertical] ; set vertical 1} else {set vertical 0}
+	set vertical [lsearch -exact $args -with_separator] ;									if {$vertical != -1} { set args [lreplace $args $vertical $vertical] ; set vertical 1} else {set vertical 0}
 	
 
 	#the name/ partial window path name. 													Then 'right shift' the arguments
@@ -209,11 +211,16 @@ proc NorthBar::new_button args {
 	#{*}$Geometry
 	#To ensure conformity to NorthBar::direction.
 	switch [lindex $Geometry 0] {
-		pack { {*}$Geometry -side $NorthBar::direction ; if $vertical { pack [ttk::separator [string cat $b _separator] -orient vertical] -after $b -side $NorthBar::direction -fill y -expand 0 -padx 1 } }
+		pack { {*}$Geometry -side $NorthBar::direction
+				# if -with_separator is specified in $args, put a vertical ttk::separator in accordance with NorthBar::direction
+				if $vertical {
+					pack [ttk::separator [string cat $b _separator] -orient vertical] -after $b -side $NorthBar::direction -fill y -expand 0 -padx 1
+					}
+			}
 		grid -
 		place { throw [list UNSUPPORTED UNSUPPORTED_GEOMETRY_MANAGER] [list Only pack GM currently is supported] }
 	}
-	
+	return $b
 }
 proc main { } {
 	
