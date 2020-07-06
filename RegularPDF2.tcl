@@ -20,7 +20,7 @@ namespace eval Util {
 }
 
 proc Util::get_center [ list win [list relative_to {}] ] {
-	#Implement later relative_to
+	#Todo: implement relative_to
 	set w [expr "[winfo vrootwidth .]/2 - [winfo width $win]/2"]
 	set h [expr "[winfo vrootheight .]/2 - [winfo height $win]/2"]
 	
@@ -51,6 +51,13 @@ proc Util::debug {} {
 	PDF reftable
 	PDF display
 	concat
+}
+proc Util::max [list a args] {
+	#collect all arguments as a list.
+	set args [concat $a $args]
+	
+	set args [lsort -decreasing $args]
+	return [lindex $args 0]
 }
 namespace eval About {
 	set path .top
@@ -132,39 +139,103 @@ proc Menu::create args {
 	#Enview On-screen ones
 	$RootWindow::path config -menu $Menu::root_name
 }
+
+
 namespace eval Menu::DocPage {
-	#later
+	#Todo: later
 }
 namespace eval NorthBar {
 	set path .toolbar
 	set border_width 5
+	
+	# Left to right, laying of elements.
+	set direction left
+	# For positioning purposes
+	set children [dict create]
+	set children_count 0
+	# For space_block buttons
+	set space_block_count 0
 }
 proc NorthBar::create args {
-	frame $NorthBar::path -borderwidth $NorthBar::border_width -relief flat
-	pack $NorthBar::path -side top
+	frame $NorthBar::path -borderwidth $NorthBar::border_width -relief flat -background gray
+	pack $NorthBar::path -side top -fill x
 	# For Testing purposes only.
-	pack [button ${NorthBar::path}.b -text NorthBar] -expand 1
+		pack [button ${NorthBar::path}.b -text NorthBar] -expand 1
+		NorthBar::new_space_block
+		NorthBar::new_space_block
+}
+proc NorthBar::new_space_block {} {
+	# specify the button's attributes to make it behave as a textless block, and then call new_button to create it.
+	NorthBar::new_button space_block_[incr NorthBar::space_block_count] -text [list Space Block] -state disabled -relief flat pack -expand 0 -fill none
+	
+	
+}
+proc NorthBar::new_button args {
+	
+	#the name/ partial window path name. 													Then 'right shift' the arguments
+	set n [string cat $NorthBar::path . [lindex $args 0]] ;										set args [lrange $args 1 end]
+		
+	
+	# index of place/pack/grid word.														# the last of those (non-empty ones)
+	set index [lmap e [list place pack grid] {concat [lsearch -exact $args $e]}] ;			set index [Util::max $index]
+
+	
+	#split args as 1: [button creation arguments (0)- $index-1] 							2: [place/pack/grid INSERTED$name - end]
+	set Attr  [lrange $args 0 $index]	;													set Geometry [lrange $args $index end ]
+	
+	if {$index == -1} {
+		set Attr $Geometry
+		set Geometry [list]
+		
+	} else {
+		set Attr [lreplace $Attr end end]
+		set Geometry [linsert $Geometry 1 $n]
+	}
+	
+	#create the button. 
+	set b [button $n {*}$Attr ]
+	
+	#store the name/window path of the button as Value to Key ++children_count
+	dict set NorthBar::children [incr NorthBar::children_count] $b
+	
+	#pack/place/grid it
+	#{*}$Geometry
+	#To ensure conformity to NorthBar::direction.
+	switch [lindex $Geometry 0] {
+		pack { {*}$Geometry -side $NorthBar::direction }
+		grid -
+		place { throw [list UNSUPPORTED UNSUPPORTED_GEOMETRY_MANAGER] [list Only pack GM currently is supported] }
+	}
 	
 }
 proc main { } {
 	
 	#Position the Root window
 	RootWindow::modify
+	
 	#Create on and off-screen Menu's. Enview on-screen ones.
 	Menu::create
+	
 	#create and Enview (cause it to be visible) Top strip/Toolbar
 	NorthBar::create
+	
 	#create and Enview [panedwindow]
 	MainPane::create
+	
 	#in-memory create a [label frame]
 	Files::create
+	
 	#create a [toplevel] window, make it invisible (iconify it), and 'bind' the X button
 	About::create
+	
+	# For Testing purposes only,
 	# Before window creation and visibility it's all 0 0 0...
 	puts [list -x [winfo x $MainPane::path] -y [winfo y $MainPane::path] \
 		  -rootx [winfo rootx $MainPane::path] -rooty [winfo rooty $MainPane::path] \
 		  -vrootx [winfo vrootx $MainPane::path] -vrooty [winfo vrooty $MainPane::path]]
-	place [button [set RootWindow::path]b -text TempButton -command Util::show_console] -x 0 -y 50
+	
+	# For Testing purposes only, of $MainPane::path
+	place [button [set RootWindow::path]b -text TempButton -command Util::show_console] -x 0 -y 100
 }
 
 main
