@@ -1,27 +1,26 @@
-# RegularPDF
+# RegularPDF (Code Restructured/Reorganized )
 # Author: Abdullah Fatota
-# Description: PDF Authoring Tool
+# Description: A PDF Authoring Tool
 
 package require Tk
 package require TclOO
 
-wm title . RegularPDF
-wm geometry . "700x400+[expr [winfo vrootwidth .]/2-350]+[expr [winfo vrootheight .]/2-200]"
-
-#namespace eval Ui {
-#	set About .top
-#	set MainPane .pane
-#	set Files [set ::Ui::MainPane].files
-#}
 
 namespace eval RootWindow {
-	set path_name {.}
+	set path {.}
+}
+
+proc RootWindow::modify {} {
+	wm title $RootWindow::path RegularPDF
+	wm geometry $RootWindow::path "700x400+[expr [winfo vrootwidth $RootWindow::path]/2-350]+[expr [winfo vrootheight $RootWindow::path]/2-200]"
+
 }
 namespace eval Util {
 	
 }
 
-proc Util::get_center {win {before 1}} {
+proc Util::get_center [ list win [list relative_to {}] ] {
+	#Implement later relative_to
 	set w [expr "[winfo vrootwidth .]/2 - [winfo width $win]/2"]
 	set h [expr "[winfo vrootheight .]/2 - [winfo height $win]/2"]
 	
@@ -54,39 +53,38 @@ proc Util::debug {} {
 	concat
 }
 namespace eval About {
-	set path_name .top
+	set path .top
 }
 
 
 proc About::create {args} {
-	toplevel $About::path_name
-	wm withdraw $About::path_name
-	wm protocol $About::path_name WM_DELETE_WINDOW {wm withdraw $About::path_name}
-	wm title $About::path_name About
-	place [button [set RootWindow::path_name].b -text TempButton -command About::show] -x 0 -y 0
+	toplevel $About::path
+	wm withdraw $About::path
+	wm protocol $About::path WM_DELETE_WINDOW {wm withdraw $About::path}
+	wm title $About::path About
 	#puts Aboutcreate
 }
 
 proc About::show args {
-	wm deicon $About::path_name
-	wm geometry $About::path_name [Util::get_center $About::path_name]
+	wm deicon $About::path
+	wm geometry $About::path [Util::get_center $About::path]
 }
 namespace eval MainPane {
-	set path_name .pane
+	set path .pane
 }
 
 proc MainPane::create args {
-	panedwindow $MainPane::path_name -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -bg coral
-	pack $MainPane::path_name -expand 1 -fill both -side bottom
+	panedwindow $MainPane::path -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -bg coral
+	pack $MainPane::path -expand 1 -fill both -side bottom
 	#puts MainPanecreate
 }
 
 namespace eval Files {
-	set path_name [set ::MainPane::path_name].files
+	set path [set ::MainPane::path].files
 }
 
 proc Files::create {args} {
-	labelframe $Files::path_name  -text "Items in current directory" -relief ridge -bd 5
+	labelframe $Files::path  -text "Items in current directory" -relief ridge -bd 5
 	#puts Filecreate
 }
 
@@ -131,20 +129,34 @@ proc Menu::create args {
 	$Menu::page add separator
 	$Menu::page add command -label Move -command {$whoobject rename $whocalled }
 	
-	$RootWindow::path_name config -menu $Menu::root_name
+	$RootWindow::path config -menu $Menu::root_name
 }
 namespace eval Menu::DocPage {
 	#later
 }
-
+namespace eval NorthBar {
+	set path .toolbar
+	set border_width 5
+}
+proc NorthBar::create args {
+	frame $NorthBar::path -borderwidth $NorthBar::border_width -relief flat
+	pack $NorthBar::path -side top
+	pack [button ${NorthBar::path}.b -text NorthBar] -expand 1
+	
+}
 proc main { } {
 	
+	RootWindow::modify
 	Menu::create
+	NorthBar::create
 	MainPane::create
-	
 	Files::create
 	About::create
-	
+	# Before window creation and visibility it's all 0 ...
+	puts [list -x [winfo x $MainPane::path] -y [winfo y $MainPane::path] \
+		  -rootx [winfo rootx $MainPane::path] -rooty [winfo rooty $MainPane::path] \
+		  -vrootx [winfo vrootx $MainPane::path] -vrooty [winfo vrooty $MainPane::path]]
+	place [button [set RootWindow::path]b -text TempButton -command Util::show_console] -x 0 -y 50
 }
 
 main
