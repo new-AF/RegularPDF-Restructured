@@ -15,6 +15,7 @@ proc RootWindow::modify {} {
 	wm geometry $RootWindow::path "700x400+[expr [winfo vrootwidth $RootWindow::path]/2-350]+[expr [winfo vrootheight $RootWindow::path]/2-200]"
 
 }
+
 namespace eval Util {
 	
 }
@@ -96,48 +97,88 @@ proc Files::create {args} {
 }
 
 namespace eval Menu {
-	set root_name .menu
-	set sub_help [set ::Menu::root_name].help
-	set document .mDoc
-	set page .mPage
+	
+	
+	#Root Menus
+	set mRoot 		.mRoot
+	set mDocument 	.mDocument	
+	set mPage 		.mPage
+	
+	#cascade Root Menus
+	set mHelp 		${Menu::mRoot}.mHelp
+	
+	#labels
+	set labels [dict create \
+				1 Help \
+				2 Debug \
+				3 Console \
+				4 About \
+				5 New  \
+				6 Clone \
+				7 Close \
+				8 {Add New Page Above} \
+				9 {Add New Page Below} \
+				10 Delete \
+				11 Move]
+	
+	#commands (could possibly be specified in Menu::create)
+	set coms [dict create \
+			  1 null \
+			  2 Util::debug \
+			  3 Util::show_console \
+			  4 About::show \
+			  5 {} \
+			  6 {$whoobject clone $whocalled } \
+			  7 {} \
+			  8 {$whoobject up $whocalled} \
+			  9 {$whoobject down $whocalled} \
+			  10 { puts .mDoc_delete} \
+			  11 {$whoobject rename $whocalled }
+			  ]
+	
+	# info about each root menu's children
+	set chRoot			[dict create menu $Menu::mRoot	cascade_1	[dict create 1 $Menu::mHelp] command_1 [list 3 2]]
+	set chDocument 		[dict create menu $Menu::mDocument	command_1	[list 5 6 7] ]
+	set chPage			[dict create menu $Menu::mPage	command_1	[list 8 9] separator_1 x command_2 [list 10 11]]
+	set chHelp 			[dict create menu $Menu::mHelp	command_1	[list 4]]
+
+	 
 }
 
-
+	
 proc Menu::create args {
 	
-	menu $Menu::root_name -tearoff 0
-	menu $Menu::sub_help -tearoff 0
 	
-	#On-screen MenuBar-type ones.
-	$Menu::sub_help add command -label About -command About::show 
-	$Menu::root_name add cascade -label Help -menu $Menu::sub_help
-	$Menu::root_name add command -label Console -command Util::show_console
-	$Menu::root_name add command -label Debug -command Util::debug
-
-	#Off-screen 'Context' Menus
-	menu $Menu::document -tearoff 0
-	menu $Menu::page -tearoff 0
-	
-		#Context Menu for Document Buttons
-		$Menu::document add command -label Delete -command {puts .mDoc_delete}
-		$Menu::document add separator
-		$Menu::document add command -label Clone -command {puts .mDoc_clone}
-		$Menu::document add separator
+	#create all Root Menu Widgets
+	#get all m* variable names in namespace ::Menu.
+	#foreach m [info vars Menu::m*] {
+	#	menu [set $m] -tearoff 0
+	#}
+	foreach m [list $Menu::mRoot $Menu::mDocument $Menu::mPage $Menu::mHelp] { menu $m -tearoff 0 }
+	unset m
 	
 	
-		#Context Menu for Page Buttons
-		$Menu::page add command -label {Add New Page Above} -command {$whoobject up $whocalled}
-		$Menu::page add separator
-		$Menu::page add command -label {Add New Page Below} -command {$whoobject down $whocalled}
-		$Menu::page add separator
-		$Menu::page add command -label Delete -command { .mDoc_delete}
-		$Menu::page add separator
-		$Menu::page add command -label Clone -command {$whoobject clone $whocalled }
-		$Menu::page add separator
-		$Menu::page add command -label Move -command {$whoobject rename $whocalled }
+	foreach chDict [list $Menu::chRoot $Menu::chDocument $Menu::chPage $Menu::chHelp] {
+		#get children (cascade/command/etc..) and depending on type do the appropriate operation
+		dict for {key val} $chDict {
+			#Hack to get the menu's path
+			if {$key eq {menu} } { set path $val ; continue }
+			#split the type from the key (name)
+			switch -exact -- [lindex [split $key _] 0] {
+				command {
+					#access numeric element in the list (value of the key)
+					foreach i $val { $path add command -label [dict get $Menu::labels $i] -command [dict get $Menu::coms $i]  } }
+				separator {
+					$path add separator }
+				cascade {
+					dict for {key2 val2} $val { $path add cascade -label [dict get $Menu::labels $key2] -menu $val2 } }
+			}
+			
+		}
+	}
 	
 	#Enview On-screen ones
-	$RootWindow::path config -menu $Menu::root_name
+	$RootWindow::path config -menu $Menu::mRoot
 }
 
 
@@ -156,6 +197,15 @@ namespace eval NorthBar {
 	# For space_block buttons
 	set space_block_count 0
 }
+namespace eval NorthBar::Menu {
+	set ison 0
+	set children [list]
+}
+
+proc NorthBar::Menu::put args {
+	# create the buttons at most Once
+	
+}
 proc NorthBar::create args {
 	frame $NorthBar::path -borderwidth $NorthBar::border_width -relief flat -background lightblue
 	pack $NorthBar::path -side top -fill x
@@ -169,10 +219,10 @@ proc NorthBar::create args {
 proc NorthBar::new_space_block args {
 	
 	# specify the button's attributes to make it behave as a textless block, and then call new_button to create it.
-	set tmp [NorthBar::new_button space_block_[incr NorthBar::space_block_count] -background [$NorthBar::path cget -background] -state disabled -relief flat pack -expand 0 -fill y]
-	puts [list [winfo width $tmp]  [winfo reqwidth $tmp]]
+	set b [NorthBar::new_button space_block_[incr NorthBar::space_block_count] -background [$NorthBar::path cget -background] -state disabled -relief flat pack -expand 0 -fill y]
+	#puts [list [winfo width $b]  [winfo reqwidth $b]]
 	
-	return $tmp
+	return $b
 }
 proc NorthBar::new_button args {
 	
@@ -222,6 +272,7 @@ proc NorthBar::new_button args {
 	}
 	return $b
 }
+
 proc main { } {
 	
 	#Position the Root window
