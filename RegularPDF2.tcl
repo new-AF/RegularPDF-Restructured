@@ -98,7 +98,6 @@ proc Files::create {args} {
 
 namespace eval Menu {
 	
-	
 	#Root Menus
 	set mRoot 		.mRoot
 	set mDocument 	.mDocument	
@@ -121,7 +120,7 @@ namespace eval Menu {
 				10 Delete \
 				11 Move]
 	
-	#commands (could possibly be specified in Menu::create)
+	#commands 
 	set coms [dict create \
 			  1 null \
 			  2 Util::debug \
@@ -137,7 +136,7 @@ namespace eval Menu {
 			  ]
 	
 	# info about each root menu's children
-	set chRoot			[dict create menu $Menu::mRoot	cascade_1	[dict create 1 $Menu::mHelp] command_1 [list 3 2]]
+	set chRoot			[dict create menu $Menu::mRoot		cascade_1	[dict create 1 $Menu::mHelp] command_1 [list 3 2]]
 	set chDocument 		[dict create menu $Menu::mDocument	command_1	[list 5 6 7] ]
 	set chPage			[dict create menu $Menu::mPage	command_1	[list 8 9] separator_1 x command_2 [list 10 11]]
 	set chHelp 			[dict create menu $Menu::mHelp	command_1	[list 4]]
@@ -147,7 +146,7 @@ namespace eval Menu {
 
 	
 proc Menu::create args {
-	
+	# Create Menus in the Menu Toolbar, cascade menus, their children commands and associated bindings
 	
 	#create all Root Menu Widgets
 	#get all m* variable names in namespace ::Menu.
@@ -166,18 +165,19 @@ proc Menu::create args {
 			#split the type from the key (name)
 			switch -exact -- [lindex [split $key _] 0] {
 				command {
-					#access numeric element in the list (value of the key)
+					#access (numeric) elements from the list (val)
 					foreach i $val { $path add command -label [dict get $Menu::labels $i] -command [dict get $Menu::coms $i]  } }
 				separator {
 					$path add separator }
 				cascade {
+					#access (key, value) pair elements from the dictionary (val)
 					dict for {key2 val2} $val { $path add cascade -label [dict get $Menu::labels $key2] -menu $val2 } }
 			}
 			
 		}
 	}
 	
-	#Enview On-screen ones
+	#Enview On-screen ones. 
 	$RootWindow::path config -menu $Menu::mRoot
 }
 
@@ -185,27 +185,32 @@ proc Menu::create args {
 namespace eval Menu::DocPage {
 	#Todo: later
 }
+
+proc Menu::post {at menu} {
+	$menu post [winfo rootx $at ]  [expr [winfo rooty $at ]+[winfo height $at ]]
+}
+
 namespace eval NorthBar {
 	set path .toolbar
 	set border_width 0
 	
-	# Left to right, laying of elements.
+	# Left to right, direction of laying elements.
 	set direction left
 	# For positioning purposes
 	set children [dict create]
 	set children_count 0
 	# For space_block buttons
 	set space_block_count 0
-}
-namespace eval NorthBar::Menu {
-	set ison 0
-	set children [list]
+	
+	# Menu Buttons (or Blocks)
+	# 0 Menu Bar (root Menu) Visible, 1 NorthBar Menu Buttons are visible,
+	set is_menu_button_mode_active 0
+	
+	set menu_button_children [list]
+	
+	set menu_button_count 0
 }
 
-proc NorthBar::Menu::put args {
-	# create the buttons at most Once
-	
-}
 proc NorthBar::create args {
 	frame $NorthBar::path -borderwidth $NorthBar::border_width -relief flat -background lightblue
 	pack $NorthBar::path -side top -fill x
@@ -226,14 +231,23 @@ proc NorthBar::new_space_block args {
 }
 proc NorthBar::new_button args {
 	
+	#++children_count
+	incr NorthBar::children_count
 	
-	#if vertical ttk::separator should be put, after the button.							# if vertical is not -1, pop it from $args.
+		# if path/$n/name is empty: .toolbar.button_block_1
+		if {[lindex $args 0] eq {}} {set n ${NorthBar::path}.button_block_$NorthBar::children_count  }
+	
+		# if {#} exists in Button creation arguments:
+		if {[set Hashtag [string first {#} $args] ]!= {-1} } { set args [string replace $args $Hashtag $Hashtag $n]  }
+	
+	#if vertical ttk::separator is present should be put, after the button.							# if vertical is not -1, pop it from $args.
 	set vertical [lsearch -exact $args -with_separator] ;									if {$vertical != -1} { set args [lreplace $args $vertical $vertical] ; set vertical 1} else {set vertical 0}
 	
 
-	#the name/ partial window path name. 													Then 'right shift' the arguments
-	set n [string cat $NorthBar::path . [lindex $args 0]] ;										set args [lrange $args 1 end]
-		
+	#get name/ partial window path name from $args[0] if it doesn't exist already.			Then 'right shift' the arguments
+	if ![info exists n] { set n ${NorthBar::path}.[lindex $args 0] } ;						set args [lrange $args 1 end]
+	
+	
 	
 	# index of place/pack/grid word.														# the last of those (non-empty ones)
 	set index [lmap e [list place pack grid] {concat [lsearch -exact $args $e]}] ;			set index [Util::max $index]
@@ -251,11 +265,12 @@ proc NorthBar::new_button args {
 		set Geometry [linsert $Geometry 1 $n]
 	}
 	
-	#create the button. 
+	
+	#create the button.	
 	set b [button $n {*}$Attr ]
 	
-	#store the name/window path of the button as Value to Key ++children_count
-	dict set NorthBar::children [incr NorthBar::children_count] $b
+	#store the name/window path of the button as Value to Key $children_count
+	dict set NorthBar::children $NorthBar::children_count $b
 	
 	#pack/place/grid it
 	#{*}$Geometry
@@ -268,21 +283,45 @@ proc NorthBar::new_button args {
 					}
 			}
 		grid -
-		place { throw [list UNSUPPORTED UNSUPPORTED_GEOMETRY_MANAGER] [list Only pack GM currently is supported] }
+		place { throw [list TK UNSUPPORTED UNSUPPORTED_GEOMETRY_MANAGER] [list Only pack GM currently is supported] }
 	}
 	return $b
 }
 
+proc NorthBar::create_menu_buttons args {
+	# Create .toolbar.menu_button_x
+	
+	dict for {key val} $Menu::chRoot {
+		switch  [lindex [split $key _] 0] {
+
+			command {
+				foreach i $val {
+					lappend NorthBar::menu_button_children $NorthBar::children_count
+					NorthBar::new_button {} -text [dict get $Menu::labels $i] -command [dict get $Menu::coms $i] -relief flat -overrelief groove pack }
+			}
+			cascade {
+				dict for {key2 val2} $val {
+					lappend NorthBar::menu_button_children $NorthBar::children_count
+					# {#} will be replaced with name/path of the button
+					NorthBar::new_button {} -text [dict get $Menu::labels $key2] -command "Menu::post # $val2" -relief flat -overrelief groove pack }
+			}
+		}
+		
+	}
+}
 proc main { } {
 	
 	#Position the Root window
 	RootWindow::modify
 	
-	#Create on and off-screen Menu's. Enview on-screen ones.
+	#Create on and off-screen Menu's. Enview .mRoot.
 	Menu::create
 	
 	#create and Enview (cause it to be visible) Top strip/Toolbar
 	NorthBar::create
+	
+	#create Menu Buttons/Blocks
+	NorthBar::create_menu_buttons
 	
 	#create and Enview [panedwindow]
 	MainPane::create
@@ -300,7 +339,8 @@ proc main { } {
 		  -vrootx [winfo vrootx $MainPane::path] -vrooty [winfo vrooty $MainPane::path]]
 	
 	# For Testing purposes only, of $MainPane::path
-	place [button [set RootWindow::path]b -text TempButton -command Util::show_console] -x 0 -y 100
+	place [button [set RootWindow::path]b -text TempButton -command [list puts [list Only a temporary Button] ]] -x 0 -y 100
 }
+
 
 main
