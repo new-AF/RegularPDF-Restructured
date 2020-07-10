@@ -10,6 +10,15 @@ namespace eval RootWindow {
 	set path {.}
 }
 
+namespace eval Icon {
+	namespace eval Unicode {
+		set UpDart 			"\u2b9d"
+		set DownDart 		"\u2b9f"
+		set UpBoldArrow		"\ud83e\udc45"
+		set DownBoldArrow	"\ud83e\udc47"
+	}
+}
+
 proc RootWindow::modify {} {
 	wm title $RootWindow::path RegularPDF
 	wm geometry $RootWindow::path "700x400+[expr [winfo vrootwidth $RootWindow::path]/2-350]+[expr [winfo vrootheight $RootWindow::path]/2-200]"
@@ -200,15 +209,14 @@ namespace eval NorthBar {
 	set children [dict create]
 	set children_count 0
 	# For space_block buttons
-	set space_block_count 0
+	set space_block_children [list]
 	
 	# Menu Buttons (or Blocks)
-	# 0 Menu Bar (root Menu) Visible, 1 NorthBar Menu Buttons are visible,
+	# 0 => Menu Bar (root Menu) is Visible, 1 => NorthBar Menu Buttons are visible,
 	set is_menu_button_mode_active 0
 	
 	set menu_button_children [list]
 	
-	set menu_button_count 0
 }
 
 proc NorthBar::create args {
@@ -219,13 +227,17 @@ proc NorthBar::create args {
 		# 2 Separators
 		NorthBar::new_space_block
 		NorthBar::new_space_block
-		NorthBar::new_button name -text Debug -relief solid pack -expand 0 -padx 2  -with_separator
+		NorthBar::new_button name -text X -relief solid pack -expand 0 -padx 2  -with_separator
 }
 proc NorthBar::new_space_block args {
 	
 	# specify the button's attributes to make it behave as a textless block, and then call new_button to create it.
-	set b [NorthBar::new_button space_block_[incr NorthBar::space_block_count] -background [$NorthBar::path cget -background] -state disabled -relief flat pack -expand 0 -fill y]
+	# Tomodify: space_block_#Replace count here
+	set b [NorthBar::new_button space_block_[incr NorthBar::children_count] -background [$NorthBar::path cget -background] -state disabled -relief flat pack -expand 0 -fill y]
 	#puts [list [winfo width $b]  [winfo reqwidth $b]]
+	
+	#append the child
+	lappend NorthBar::space_block_children $NorthBar::children_count
 	
 	return $b
 }
@@ -296,18 +308,61 @@ proc NorthBar::create_menu_buttons args {
 
 			command {
 				foreach i $val {
+					NorthBar::new_button {} -text [dict get $Menu::labels $i] -command [dict get $Menu::coms $i] -relief flat -overrelief groove pack
 					lappend NorthBar::menu_button_children $NorthBar::children_count
-					NorthBar::new_button {} -text [dict get $Menu::labels $i] -command [dict get $Menu::coms $i] -relief flat -overrelief groove pack }
+					}
+					
 			}
 			cascade {
 				dict for {key2 val2} $val {
-					lappend NorthBar::menu_button_children $NorthBar::children_count
 					# {#} will be replaced with name/path of the button
 					NorthBar::new_button {} -text [dict get $Menu::labels $key2] -command "Menu::post # $val2" -relief flat -overrelief groove pack }
+					lappend NorthBar::menu_button_children $NorthBar::children_count
 			}
 		}
 		
 	}
+}
+
+proc NorthBar::create_menu_buttons_switch args {
+	#Assmes position (it's has been called after create_menu_buttons etc...)
+	
+	
+	# get full window path of the new button
+	lassign [NorthBar::new_button menu_switch -relief flat -overrelief groove -text "$Icon::Unicode::UpBoldArrow Bring Up Menu"  pack] b
+	
+	#then send it, in command
+	$b config -command [list NorthBar::menu_buttons_switch $b]
+	
+}
+proc NorthBar::menu_buttons_switch w {
+	#$w => full window path of the Switch Button
+	
+	#the switch button's  text
+	set text [$w cget -text]
+	
+	#str => {Up} or {Down}
+	set str [lindex $text 2]
+	
+	if {$str eq {Up}} {
+			#set the Menu Bar
+			$RootWindow::path config -menu $Menu::mRoot
+			#Get all menu buttons
+			set all [ lmap e $NorthBar::menu_button_children { concat [dict get $NorthBar::children $e] } ]
+			#remove them
+			pack forget {*}$all
+			#rename the button
+			$w config -text [lreplace [lreplace $text 2 2 Down] 0 0 $Icon::Unicode::DownBoldArrow]
+		} else {
+			#remove the menu bar
+			$RootWindow::path config -menu {}
+			#Get all menu buttons
+			set all [ lmap e $NorthBar::menu_button_children { concat [dict get $NorthBar::children $e] } ]
+			#pack them, before .toolbar.menu_switch
+			pack {*}$all -side $NorthBar::direction -before $w
+			#rename the button
+			$w config -text [lreplace [lreplace $text 2 2 Up] 0 0 $Icon::Unicode::UpBoldArrow]
+		}
 }
 proc main { } {
 	
@@ -320,8 +375,12 @@ proc main { } {
 	#create and Enview (cause it to be visible) Top strip/Toolbar
 	NorthBar::create
 	
+	
 	#create Menu Buttons/Blocks
 	NorthBar::create_menu_buttons
+	
+	#create the Menu Buttons switch button
+	NorthBar::create_menu_buttons_switch
 	
 	#create and Enview [panedwindow]
 	MainPane::create
