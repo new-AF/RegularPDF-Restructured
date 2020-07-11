@@ -217,6 +217,7 @@ namespace eval NorthBar {
 	
 	set menu_button_children [list]
 	
+	set dart_children [dict create]
 }
 
 proc NorthBar::create args {
@@ -241,24 +242,36 @@ proc NorthBar::new_space_block args {
 	
 	return $b
 }
-proc NorthBar::new_button args {
+
+proc NorthBar::new_button [list name args] {
+	
+	# too complicated
+	# new button [list name type args]
+	# if $name == {}: .toolbar.$type_block_$count ; if -no_count_append => .toolbar.$type_block_
+	# eles:			  .toolbar.$type_block_$name ; if -no_count_append => Ignore
+	#
+	# instead -type Type is implemented
 	
 	#++children_count
 	incr NorthBar::children_count
 	
-		# if path/$n/name is empty: .toolbar.button_block_1
-		if {[lindex $args 0] eq {}} {set n ${NorthBar::path}.button_block_$NorthBar::children_count  }
+		# if name is empty => .toolbar.button_block_(Count)
+		if {$name eq {}} { set n [string cat $NorthBar::path {.} button_block_  $NorthBar::children_count] }
 	
 		# if {#} exists in Button creation arguments:
-		if {[set Hashtag [string first {#} $args] ]!= {-1} } { set args [string replace $args $Hashtag $Hashtag $n]  }
+		if { [set Hashtag [string first {#} $args] ]!= {-1} } { set args [string replace $args $Hashtag $Hashtag $n]  }
 	
 	#if vertical ttk::separator is present should be put, after the button.							# if vertical is not -1, pop it from $args.
 	set vertical [lsearch -exact $args -with_separator] ;									if {$vertical != -1} { set args [lreplace $args $vertical $vertical] ; set vertical 1} else {set vertical 0}
 	
-
-	#get name/ partial window path name from $args[0] if it doesn't exist already.			Then 'right shift' the arguments
-	if ![info exists n] { set n ${NorthBar::path}.[lindex $args 0] } ;						set args [lrange $args 1 end]
+	# search for -type
+	set type [lsearch -exact $args {-type}]
+	# if -type is present, 1) set tmp as the value After it in $args. 2) replace -type and the Value. 3) return just set $type.
+	# else set type to 0
+	set type [ if {$type == {-1}} {subst 0} else { set tmp [lindex $args $type+1] ; set args [lreplace $args $type $type+1] ; subst $tmp} ]
 	
+	#get name/ partial window path name from $args[0] if it doesn't exist already.			Then 'right shift' the arguments
+	if ![info exists n] { set n [string cat $NorthBar::path {.} $name ] } ;					#	set args [lrange $args 1 end]
 	
 	
 	# index of place/pack/grid word.														# the last of those (non-empty ones)
@@ -278,8 +291,9 @@ proc NorthBar::new_button args {
 	}
 	
 	
-	#create the button.	
-	set b [button $n {*}$Attr ]
+	#Hackey way of doing it.
+	#create the button, by default
+	set b [expr { $type == {0} ? [button $n {*}$Attr ] : [NorthBar::new_$type $n $Attr] } ]
 	
 	#store the name/window path of the button as Value to Key $children_count
 	dict set NorthBar::children $NorthBar::children_count $b
@@ -299,7 +313,46 @@ proc NorthBar::new_button args {
 	}
 	return $b
 }
-
+proc NorthBar::new_dart [list n Args] {
+	
+	#n 		=> full window path, pre-created
+	#Args 	=> Attr, a list from NorthBar::new_button
+	
+	#remove Switches
+		# search for -options
+		set ops [lsearch -exact $Args {-options}]
+		#retrieve and remove
+		set ops [ if {$ops == {-1}} {subst 0} else { set tmp [lindex $Args $ops+1] ; set Args [lreplace $Args $ops $ops+1] ; subst $tmp} ]
+		
+		unset tmp
+	#the container
+	set contain [frame $n -relief flat -borderwidth 1]
+	
+	#the button
+	set b1 [button [string cat $contain . b1 ] {*}$Args -relief flat ]
+	#separator
+	set s [ttk::separator [string cat $contain . s ] -orient vertical]
+	#dart "option" button; to trigger a menu of options (not tk_optionMenu)
+	set b2 [button [string cat $contain . b2 ] -relief [$b1 cget -relief] -text "$Icon::Unicode::DownDart"]
+	#the menu
+	set m [menu [string cat $contain . m ] -tearoff 0]
+	# add option; 0 => buit-in file lister . 1 => OS' native
+	foreach op $ops value [list 0 1] { $m add radiobutton -label $op -value $value }
+	
+	#dict set NorthBar::dart_children $NorthBar::cildren_count [dict create]
+	pack $b1 $s $b2 -side left
+	pack configure $s -fill y
+	
+	#config. Todo:Complete the implementation
+	$b2 config -command "Menu::post $b2 $m"
+	
+	#Emulating -overrelief
+	bind $contain <Enter> "$contain config -relief groove"
+	bind $contain <Leave> "$contain config -relief flat"
+	
+	return $contain
+	
+}
 proc NorthBar::create_menu_buttons args {
 	# Create .toolbar.menu_button_x
 	
@@ -364,8 +417,10 @@ proc NorthBar::menu_buttons_switch w {
 			$w config -text [lreplace [lreplace $text 2 2 Up] 0 0 $Icon::Unicode::UpBoldArrow]
 		}
 }
+
 proc main { } {
 	
+	set os [lindex [array get tcl_platform os] 1]
 	#Position the Root window
 	RootWindow::modify
 	
@@ -382,6 +437,8 @@ proc main { } {
 	#create the Menu Buttons switch button
 	NorthBar::create_menu_buttons_switch
 	
+	#Test
+	NorthBar::new_button {} -type dart -text {Save as PDF} -options [list {Use the built-in File lister} {Use the OS' native File explorer}] pack -pady 1
 	#create and Enview [panedwindow]
 	MainPane::create
 	
