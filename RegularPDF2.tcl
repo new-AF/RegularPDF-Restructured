@@ -16,6 +16,11 @@ namespace eval Icon {
 		set DownDart 		"\u2b9f"
 		set UpBoldArrow		"\ud83e\udc45"
 		set DownBoldArrow	"\ud83e\udc47"
+		set Save 			"\ud83d\udcbe"
+		set FolderOpen 		"\ud83d\udcc2"
+		set FolderClosed 	"\ud83d\uddc0"
+		set Back 			"\u2190"
+		set Reload 			"\u21bb"
 	}
 }
 
@@ -88,23 +93,84 @@ proc About::show args {
 }
 namespace eval MainPane {
 	set path .pane
+	set background coral
 }
 
 proc MainPane::create args {
-	panedwindow $MainPane::path -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -bg coral
+	panedwindow $MainPane::path -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -background $MainPane::background
 	pack $MainPane::path -expand 1 -fill both -side bottom
 	#puts MainPanecreate
 }
 
 namespace eval Files {
-	set path [set ::MainPane::path].files
+	set path [string cat $MainPane::path . files]
+	#Files listbox
+	set L [string cat $Files::path . incons_listbox]
+	#Icons listbox
+	set R [string cat $Files::path . files_listbox]
+	#Files listbox variable
+	set Lvar {}
+	#Icons listbox variable
+	set Rvar {}
+	# path of current directory
+	set current_dir {}
+	# index of last highlighted element
+	set last_h {}
+	#aesthetic properties
+	set frame_borderwidth 	5
+	set highlight_color 	yellow
+	
 }
 
 proc Files::create {args} {
-	labelframe $Files::path  -text "Items in current directory" -relief ridge -bd 5
-	#puts Filecreate
+	#the frame
+	labelframe $Files::path  -text "Items in current directory" -relief ridge -bd $Files::frame_borderwidth
+	#frame parent's background
+	set Pbg [[winfo parent $Files::path] cget -background]
+	#the left listbox for 
+	listbox $Files::L -relief flat -highlightthickness 2 -highlightcolor blue \
+	-background $Pbg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar
+	#right-hand side listbox for listing files
+	listbox $Files::R -relief flat -highlightthickness 2 -highlightcolor blue \
+	-background $Pbg -cursor hand2 -activestyle none -selectmode browse -listvar Files::Rvar
+	
+	pack $Files::path -side left -fill y
+	pack $Files::L $Files::R -side left -fill y
+	pack config $Files::R -side left -fill both -expand 1
+	
+	#binding, when pointer inside the listbox
+	bind $Files::R <Motion> {
+		#"deselect" all, costly
+		#for [list set len [expr [%W size] - 1]] {$len >= 0} [list incr len -1] { %W itemconfigure $len -background {}}
+		#another approach, if the variable holding the last index is not empty, de-highlight it
+		if {$Files::last_h ne {}} {%W itemconfigure $Files::last_h -background {}}
+		#hightlight index "cursor"
+		%W itemconfigure [%W index @%x,%y] -background $Files::highlight_color
+		#save that that has been highlighted's index
+		set Files::last_h [%W index @%x,%y]
+	}
+	#when it leaves
+	bind $Files::R <Leave> {
+		#costly
+		#for [list set len [expr [%W size] - 1]] {$len >= 0} [list incr len -1] { %W itemconfigure $len -background {}}
+		#de-highlight the last index
+		if {$Files::last_h ne {}} {%W itemconfigure $Files::last_h -background {}}
+	}
 }
-
+proc Files::list args {
+	#files
+	set f [concat [glob -nocomplain  -types {f} *] [glob -nocomplain  -types {f hidden} *] ]
+	#directories
+	set d [concat [glob -nocomplain  -types {d} *] [glob -nocomplain  -types {d hidden} *] ]
+	
+	#list them in the (right) listbox
+	set Files::Rvar [concat $d {{}} $f]
+	
+	#set the current dir
+	set Files::current_dir [file normalize .]
+	
+	set Files::Lvar [lrepeat [llength $d] $Icon::Unicode::FolderClosed ]
+}
 namespace eval Menu {
 	
 	#Root Menus
@@ -442,8 +508,11 @@ proc main { } {
 	#create and Enview [panedwindow]
 	MainPane::create
 	
-	#in-memory create a [label frame]
+	#create and enview a [label frame]
 	Files::create
+	
+	#And populate it with dir items
+	Files::list
 	
 	#create a [toplevel] window, make it invisible (iconify it), and 'bind' the X button
 	About::create
