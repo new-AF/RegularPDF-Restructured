@@ -16,6 +16,7 @@ namespace eval Icon {
 		set DownDart 		"\u2b9f"
 		set UpBoldArrow		"\ud83e\udc45"
 		set DownBoldArrow	"\ud83e\udc47"
+		set LeftBarbArrow	"\ud83e\udc60"
 		set Save 			"\ud83d\udcbe"
 		set FolderOpen 		"\ud83d\udcc2"
 		set FolderClosed 	"\ud83d\uddc0"
@@ -129,7 +130,7 @@ proc Files::create {args} {
 	set Pbg [[winfo parent $Files::path] cget -background]
 	#the left listbox for 
 	listbox $Files::L -relief flat -highlightthickness 2 -highlightcolor blue \
-	-background $Pbg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar
+	-background $Pbg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center
 	#right-hand side listbox for listing files
 	listbox $Files::R -relief flat -highlightthickness 2 -highlightcolor blue \
 	-background $Pbg -cursor hand2 -activestyle none -selectmode browse -listvar Files::Rvar
@@ -144,8 +145,10 @@ proc Files::create {args} {
 		#for [list set len [expr [%W size] - 1]] {$len >= 0} [list incr len -1] { %W itemconfigure $len -background {}}
 		#another approach, if the variable holding the last index is not empty, de-highlight it
 		if {$Files::last_h ne {}} {%W itemconfigure $Files::last_h -background {}}
-		#hightlight index "cursor"
+		#hightlight index "cursor" in R
 		%W itemconfigure [%W index @%x,%y] -background $Files::highlight_color
+		#in L
+		
 		#save that that has been highlighted's index
 		set Files::last_h [%W index @%x,%y]
 	}
@@ -153,23 +156,58 @@ proc Files::create {args} {
 	bind $Files::R <Leave> {
 		#costly
 		#for [list set len [expr [%W size] - 1]] {$len >= 0} [list incr len -1] { %W itemconfigure $len -background {}}
-		#de-highlight the last index
+		#un-highlight the last index
 		if {$Files::last_h ne {}} {%W itemconfigure $Files::last_h -background {}}
 	}
+	
+	#when an item is selected
+	bind $Files::R <<ListboxSelect>> {
+		# back arrow, go one level up
+		if {[%W curselection] == 0} {
+			#Indicate up one level
+			set up [string cat $Files::current_dir /../]
+			# if before 'root' e.g. currently at C:/
+			#puts "UP is $up"
+			if {[file normalize $up] ni [file volumes]} {
+					Files::list $up
+				} else {
+					Files::list $up [file volumes]
+			}
+			
+		}
+	}
 }
-proc Files::list args {
-	#files
-	set f [concat [glob -nocomplain  -types {f} *] [glob -nocomplain  -types {f hidden} *] ]
-	#directories
-	set d [concat [glob -nocomplain  -types {d} *] [glob -nocomplain  -types {d hidden} *] ]
+proc Files::list [list [list path ./] [list bypass 0] ] {
+	# bypass is 0 => list the path, 1=> the 'final' result is haned-in
+	if {$bypass == 0} {
+		#files
+		set f [concat [glob -nocomplain -path $path -types {f} *] [glob -nocomplain -path $path -types {f hidden} *] ]
+		#directories
+		set d [concat [glob -nocomplain -path $path -types {d} *] [glob -nocomplain -path $path -types {d hidden} *] ]
+		
+		#strip $d and $f From $path, by subsetting the string after the $path prefix
+		set pathStrLen [string length $path]
+		set f [lmap e $f {string range $e $pathStrLen end}]
+		set d [lmap e $d {string range $e $pathStrLen end}]
+	} else {
+		#no files
+		set f {}
+		#only root(s)/drivers c:/ d:/ ...
+		set d $bypass
+	}
+	
+	#clear L and R
+	set Files::Lvar {}
+	set Files::Rvar {}
+	
 	
 	#list them in the (right) listbox
-	set Files::Rvar [concat $d {{}} $f]
+	set Files::Rvar [concat "$Icon::Unicode::LeftBarbArrow" $d {{}} $f]
 	
 	#set the current dir
-	set Files::current_dir [file normalize .]
+	set Files::current_dir [file normalize $path]
 	
-	set Files::Lvar [lrepeat [llength $d] $Icon::Unicode::FolderClosed ]
+	set Files::Lvar [lrepeat [expr [llength $d ]+ 1 ] $Icon::Unicode::FolderClosed ]
 }
 namespace eval Menu {
 	
@@ -403,7 +441,7 @@ proc NorthBar::new_dart [list n Args] {
 	#the menu
 	set m [menu [string cat $contain . m ] -tearoff 0]
 	# add option; 0 => buit-in file lister . 1 => OS' native
-	foreach op $ops value [list 0 1] { $m add radiobutton -label $op -value $value }
+	foreach op $ops value [list 0 1] { $m add radiobutton -label $op -value $value}
 	
 	#dict set NorthBar::dart_children $NorthBar::cildren_count [dict create]
 	pack $b1 $s $b2 -side left
