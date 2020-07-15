@@ -105,6 +105,17 @@ proc Util::args {lst args} {
 	uplevel 1 $com
 	return x
 }
+proc Util::range [list from to [list by 1]] {
+	set ranges 	[list]
+	set last	$from
+	while { [incr last $by] <= $to } {lappend ranges $last}
+	if {$ranges ne {}} {set ranges [linsert $ranges 0 $from]}
+	return $ranges
+}
+# a hack and a terrible name
+proc Util::len_range [list from to [list by 1]] {
+	return [Util::range $from [expr {$to - 1}] $by ]
+}
 namespace eval About {
 	set path .top
 }
@@ -146,6 +157,7 @@ namespace eval Files {
 	# path of current directory											#"Dir Limit" Index
 	set dir [pwd]	;													set dir_limit {}												
 	
+	# is W indos. better asked is case sensitive
 	
 	# index of last highlighted element
 	set last_h {}
@@ -233,7 +245,9 @@ proc Files::list_ [list [list path ./] [list bypass 0] ] {
 	set f [lmap x $f {string range $x $pathStrLen end}]
 	set d [lmap x $d {string range $x $pathStrLen end}]
 	
-	
+	# sort files and directories
+	set f [lsort -nocase $f]
+	set d [lsort -nocase $d]
 	#clear L and R
 	set Files::Lvar {} ; set Files::Rvar {}
 	
@@ -399,6 +413,7 @@ namespace eval NorthBar {
 	set menu_button_children [list]
 	
 	set dart_children [dict create]
+	set testVar {}
 }
 
 proc NorthBar::create args {
@@ -500,12 +515,27 @@ proc NorthBar::new_dart [list n Args] {
 	#Args 	=> Attr, a list from NorthBar::new_button
 	
 	#remove Switches
-		# search for -options
-		set ops [lsearch -exact $Args {-options}]
+		# search for -options (labels on the menu)
+		# -default (index of which label to be ticked/on)
+		# -text 	(text on button face)
+		set opsWanted 		[list -options -default]
+		set opsIndexes 		[lmap e $opsWanted {concat [lsearch -exact $Args $e]}]
+		# to find element in args that are not index of -option or after it
+		set opsIndexesNot	[Util::len_range 0  [llength $Args]]
+		set opsIndexesNot	[lmap e $opsIndexesNot {if {$e in $opsIndexes || ($e - 1) in $opsIndexes } {continue} else {concat $e} }]
+		#
 		#retrieve and remove
-		set ops [ if {$ops == {-1}} {subst 0} else { set tmp [lindex $Args $ops+1] ; set Args [lreplace $Args $ops $ops+1] ; subst $tmp} ]
+		foreach index $opsIndexes one $opsWanted {
+			set [string range $one 1 end] [ if {$index == {-1}} {subst {}} else { set tmp [lindex $Args $index+1] ; ; subst $tmp} ]
+		}
 		
-		unset tmp
+		#abandoned
+		#Util::args $Args -options -default
+		#puts [list new dart is $options $default]
+		#
+		unset -nocomplain tmp
+		# to counteract $Args being =>[list {} {} {} {} {}]
+		set Args [lmap e $opsIndexesNot {lindex $Args $e}]
 	#the container
 	set contain [frame $n -relief flat -borderwidth 1]
 	
@@ -517,8 +547,13 @@ proc NorthBar::new_dart [list n Args] {
 	set b2 [button [string cat $contain . b2 ] -relief [$b1 cget -relief] -text "$Icon::Unicode::DownDart"]
 	#the menu
 	set m [menu [string cat $contain . m ] -tearoff 0]
+	
+	#by controlling -variable sets the default radiobutton
+	set NorthBar::testVar $default
 	# add option; 0 => buit-in file lister . 1 => OS' native
-	foreach op $ops value [list 0 1] { $m add radiobutton -label $op -value $value}
+	foreach op $options value [Util::len_range 0 [llength $options]] { $m add radiobutton -label $op -value $value -variable NorthBar::testVar}
+	
+	
 	
 	#dict set NorthBar::dart_children $NorthBar::cildren_count [dict create]
 	pack $b1 $s $b2 -side left
@@ -619,7 +654,7 @@ proc main { } {
 	NorthBar::create_menu_buttons_switch
 	
 	#Test
-	NorthBar::new_button {} -type dart -text {Save as PDF} -options [list {Use the built-in File lister} {Use the OS' native File explorer}] pack -pady 1
+	NorthBar::new_button {} -type dart -text {Save as PDF} -command {puts [list -> %x %y]} -options [list {Use the built-in File lister} {Use the OS' native File explorer}] -default 1 pack -pady 1
 	#create and Enview [panedwindow]
 	MainPane::create
 	
