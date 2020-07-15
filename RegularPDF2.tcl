@@ -14,6 +14,7 @@ namespace eval Icon {
 	namespace eval Unicode {
 		set UpDart 			"\u2b9d"
 		set DownDart 		"\u2b9f"
+		set DownArrow		"\u25bc"
 		set UpBoldArrow		"\ud83e\udc45"
 		set DownBoldArrow	"\ud83e\udc47"
 		set LeftBarbArrow	"\ud83e\udc60"
@@ -22,6 +23,7 @@ namespace eval Icon {
 		set FolderClosed 	"\ud83d\uddc0"
 		set Back 			"\u2190"
 		set Reload 			"\u21bb"
+		set Folders			"\ud83d\uddc2"
 	}
 }
 
@@ -75,6 +77,34 @@ proc Util::max [list a args] {
 	set args [lsort -decreasing $args]
 	return [lindex $args 0]
 }
+proc Util::args {lst args} {
+	#Args $args -angles 60deg -points 0,0 +10,0 -10,-10 -anchor 1 -sides
+	#indexes of options: strings starting wtih {-[a...z]}
+	set x [lsearch -nocase -all $args -\[a-z\]* ] ;
+	#sotrage for thos options/switches
+	set d [dict create] ; 
+	
+	foreach name [list args lst] {
+		# 
+		upvar 0 $name var
+		# j => x[0 : end]	;	i => x[1 : end]
+		foreach i [list {*}[lrange $x 1 end] [llength $var]] j $x {
+			#puts "i-j  [expr {$i - $j} ] =[lrange $var $j+1 $i-1]="
+			# if an 'entry' exists between the two 'switches' set/override it as the value of the option either in args
+			dict set d [lindex $var $j] [expr { ($i - $j) > 1 ? [lrange $var $j+1 $i-1] : {} } ]
+		}
+		# or lst
+		set x [lsearch -all $lst -?* ]
+		if {$x eq {}} then {break}
+	}
+	#set con "$d"
+	#concat
+	set com [string cat {dict for {key value} } "{$d}" { {set [string range $key 1 end] $value}} ]
+	
+	#'inject' the variables into the calling function.
+	uplevel 1 $com
+	return x
+}
 namespace eval About {
 	set path .top
 }
@@ -105,18 +135,21 @@ proc MainPane::create args {
 
 namespace eval Files {
 	set path [string cat $MainPane::path . files]
-	#Files listbox
-	set L [string cat $Files::path . incons_listbox]
-	#Icons listbox
-	set R [string cat $Files::path . files_listbox]
-	#Files listbox variable
-	set Lvar {}
-	#Icons listbox variable
-	set Rvar {}
-	# path of current directory
-	set current_dir {}
+	
+	#Icons listbox (Left)												#Files listbox (Right)
+	set L [string cat $Files::path . incons_listbox] ;					set R [string cat $Files::path . files_listbox]			
+	
+	#Icions listbox variable											#Icons listbox variable
+	set Lvar {}	;														set Rvar {}
+	
+	
+	# path of current directory											#"Dir Limit" Index
+	set dir [pwd]	;													set dir_limit {}												
+	
+	
 	# index of last highlighted element
 	set last_h {}
+	
 	#aesthetic properties
 	set frame_borderwidth 	5
 	set highlight_color 	yellow
@@ -139,18 +172,21 @@ proc Files::create {args} {
 	pack $Files::L $Files::R -side left -fill y
 	pack config $Files::R -side left -fill both -expand 1
 	
+	
+	
 	#binding, when pointer inside the listbox
 	bind $Files::R <Motion> {
+		set index [%W index @%x,%y]
 		#"deselect" all, costly
 		#for [list set len [expr [%W size] - 1]] {$len >= 0} [list incr len -1] { %W itemconfigure $len -background {}}
 		#another approach, if the variable holding the last index is not empty, de-highlight it
 		if {$Files::last_h ne {}} {%W itemconfigure $Files::last_h -background {}}
 		#hightlight index "cursor" in R
-		%W itemconfigure [%W index @%x,%y] -background $Files::highlight_color
+		%W itemconfigure $index -background $Files::highlight_color
 		#in L
 		
 		#save that that has been highlighted's index
-		set Files::last_h [%W index @%x,%y]
+		set Files::last_h $index
 	}
 	#when it leaves
 	bind $Files::R <Leave> {
@@ -161,53 +197,94 @@ proc Files::create {args} {
 	}
 	
 	#when an item is selected
+	
 	bind $Files::R <<ListboxSelect>> {
-		# back arrow, go one level up
-		if {[%W curselection] == 0} {
-			#Indicate up one level
-			set up [string cat $Files::current_dir /../]
-			# if before 'root' e.g. currently at C:/
-			#puts "UP is $up"
-			if {[file normalize $up] ni [file volumes]} {
-					Files::list $up
-				} else {
-					Files::list $up [file volumes]
-			}
-			
-		}
-	}
-}
-proc Files::list [list [list path ./] [list bypass 0] ] {
-	# bypass is 0 => list the path, 1=> the 'final' result is haned-in
-	if {$bypass == 0} {
-		#files
-		set f [concat [glob -nocomplain -path $path -types {f} *] [glob -nocomplain -path $path -types {f hidden} *] ]
-		#directories
-		set d [concat [glob -nocomplain -path $path -types {d} *] [glob -nocomplain -path $path -types {d hidden} *] ]
+		# current selected Index
+		set index 	[%W curselection]
+		# what's on it
+		set Label 	[$Files::R get $index]
+		# if <-
 		
-		#strip $d and $f From $path, by subsetting the string after the $path prefix
-		set pathStrLen [string length $path]
-		set f [lmap e $f {string range $e $pathStrLen end}]
-		set d [lmap e $d {string range $e $pathStrLen end}]
-	} else {
-		#no files
-		set f {}
-		#only root(s)/drivers c:/ d:/ ...
-		set d $bypass
+		# Assuming R is cleared
+		set Files::last_h {}
+		
+		if {$index == 0} {
+			# full path of doing <-
+			set Files::dir [file normalize [file join $Files::dir .. ] ]
+			puts [list up is $Files::dir]
+			# if C:/ D:/ or even /								list volumes					otherwise list the up/dir, glob demands an / on end
+			if { $Files::dir in [set volumes [file volumes]] } { Files::list_volumes $volumes } else { Files::list_ [string cat $Files::dir /] }
+			# glob tolerates an extra / on end
+			# puts [list to is $Files::dir]
+		} elseif {$index < $Files::dir_limit} { set Files::dir [file join $Files::dir $Label];  ;Files::list_ [string cat $Files::dir /] }
 	}
+
+}
+proc Files::list_ [list [list path ./] [list bypass 0] ] {
+	
+	
+	#files
+	set f [concat [glob -nocomplain -path $path -types {f} *] [glob -nocomplain -path $path -types {f hidden} *] ]
+	#directories
+	set d [concat [glob -nocomplain -path $path -types {d} *] [glob -nocomplain -path $path -types {d hidden} *] ]
+	
+	#strip $d and $f From $path, by subsetting the string after the $path prefix
+	set pathStrLen [string length $path]
+	set f [lmap x $f {string range $x $pathStrLen end}]
+	set d [lmap x $d {string range $x $pathStrLen end}]
+	
+	
+	#clear L and R
+	set Files::Lvar {} ; set Files::Rvar {}
+	
+	#set "Limit" Index Beyond which only files exist.
+	set Files::dir_limit [expr 1 + [llength $d] ]
+
+	
+	#Populate Right listbox
+	
+	set Files::Rvar [list "$Icon::Unicode::LeftBarbArrow" {*}$d "$Icon::Unicode::DownArrow File(s)" {*}$f]
+	
+	#Populate Icons
+	set Files::Lvar [lrepeat [expr [llength $d ]+ 1 ] $Icon::Unicode::FolderClosed ]
+	
+	#
+	#set index [$Files::R index @[winfo x $Files::R],[winfo y $Files::R] ]
+	#
+	#$Files::R itemconfigure $index -background $Files::highlight_color
+}
+proc Files::list_volumes lst {
+	#lst => list of volumes
+	
+	#no files
+	set f {}
+	#only root(s)/drivers c:/ d:/ ...
+	set d $lst
 	
 	#clear L and R
 	set Files::Lvar {}
 	set Files::Rvar {}
 	
+	#
+	#
+	set Files::dir_limit [expr [llength $d] + 1]
 	
-	#list them in the (right) listbox
-	set Files::Rvar [concat "$Icon::Unicode::LeftBarbArrow" $d {{}} $f]
+	#right-populate
+	set Files::Rvar [ concat "$Icon::Unicode::LeftBarbArrow" $d ]
 	
-	#set the current dir
-	set Files::current_dir [file normalize $path]
+	#left populate with "volume" icon
+	set Files::Lvar [lrepeat [expr [llength $d ] + 1 ] $Icon::Unicode::Folders]
 	
-	set Files::Lvar [lrepeat [expr [llength $d ]+ 1 ] $Icon::Unicode::FolderClosed ]
+}
+namespace eval Tooltip  {
+	set location {}
+	set pins 	[dict create]
+	set boards 	[dict create]
+}
+
+proc Tooltip::place args {
+	#Tooltip::place -widget x -anchor 'ne' -show which Board
+	Util::args $args -widget -anchor -show
 }
 namespace eval Menu {
 	
@@ -550,7 +627,7 @@ proc main { } {
 	Files::create
 	
 	#And populate it with dir items
-	Files::list
+	Files::list_
 	
 	#create a [toplevel] window, make it invisible (iconify it), and 'bind' the X button
 	About::create
