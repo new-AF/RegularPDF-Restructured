@@ -145,7 +145,17 @@ proc MainPane::create args {
 }
 
 namespace eval Files {
-	set path [string cat $MainPane::path . files]
+	set path 	[string cat $MainPane::path . files]
+	
+	set toolbar [string cat $Files::path . toolbar]
+	
+	set toolbar_3dots	[string cat $Files::toolbar .dots]
+	set toolbar_filter	[string cat $Files::toolbar .filter]
+	set toolbar_reload	[string cat $Files::toolbar .reload]
+	set toolbar_cd		[string cat $Files::toolbar .cd]
+	
+	set scrollh 		[string cat $Files::path . scrollh]
+	set scrollv 		[string cat $Files::path . scrollv]
 	
 	#Icons listbox (Left)												#Files listbox (Right)
 	set L [string cat $Files::path . incons_listbox] ;					set R [string cat $Files::path . files_listbox]			
@@ -158,6 +168,9 @@ namespace eval Files {
 	set dir [pwd]	;													set dir_limit {}												
 	
 	# is W indos. better asked is case sensitive
+	
+	# var for optionMenu widget
+	set cd_var {}
 	
 	# index of last highlighted element
 	set last_h {}
@@ -173,18 +186,56 @@ proc Files::create {args} {
 	labelframe $Files::path  -text "Items in current directory" -relief ridge -bd $Files::frame_borderwidth
 	#frame parent's background
 	set Pbg [[winfo parent $Files::path] cget -background]
-	#the left listbox for 
+	#the left listbox for Icons
 	listbox $Files::L -relief flat -highlightthickness 2 -highlightcolor blue \
 	-background $Pbg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center
 	#right-hand side listbox for listing files
 	listbox $Files::R -relief flat -highlightthickness 2 -highlightcolor blue \
 	-background $Pbg -cursor hand2 -activestyle none -selectmode browse -listvar Files::Rvar
+	#the toolbar
+	frame $Files::toolbar -relief groove -borderwidth 10 -height 50
+	# set up the scrollbars
+	scrollbar $Files::scrollh -orient vertical -relief groove -command {$Files::R yview}
+	scrollbar $Files::scrollv -orient horizontal -relief groove -command {$Files::R xview}
+	#
+	$Files::R configure -yscrollcommand {$Files::scrollh set}
+	$Files::R configure -xscrollcommand {$Files::scrollv set}
+	#
+	# pack the frame
+	# pack $Files::path 			-side left 	-fill y
+	$MainPane::path add $Files::path
+	# pack the scroll bars
+	pack $Files::scrollh -side right 	-fill y
+	pack $Files::scrollv -side bottom 	-fill x
+	# pack the toolbar
+	pack $Files::toolbar 		-side top 	-fill x		-padx 10 	-pady 10 -expand 0
+	# packing the list boxes
+	pack $Files::L $Files::R 	-side left 	-fill y
+	pack config $Files::R 		-side left 	-fill both -expand 1
 	
-	pack $Files::path -side left -fill y
-	pack $Files::L $Files::R -side left -fill y
-	pack config $Files::R -side left -fill both -expand 1
+	# create and pack contents of the toolbar
+	#pack [button $Files::toolbar_filter 	-text {Filter PDF Files}					-relief groove] 	-side left		-padx 2 -expand 1 -fill none
+	#pack [button $Files::toolbar_reload 	-text "$Icon::Unicode::Reload Reload"		-relief groove] 	-side left		-padx 2 -expand 1 -fill none
+	#pack [button $Files::toolbar_cd 		-text "$Icon::Unicode::FolderOpen Change Directory"	-relief groove] 	-side left		-padx 2 -expand 1 -fill none
+	#pack [button $Files::toolbar_3dots 		-text {...}									-relief groove] 	-side left		-padx 2 -expand 1 -fill x
+
+	grid [button $Files::toolbar_filter 	-text {Filter PDF Files}					-relief groove] -row 0 -column 0 -sticky we
+	grid [button $Files::toolbar_reload 	-text "$Icon::Unicode::Reload Reload"		-relief groove] -row 0 -column 1 -sticky we
+	# option menu button + descendant menu
+	tk_optionMenu $Files::toolbar_cd 		Files::cd_var {} -text "$Icon::Unicode::FolderOpen Change Directory"	-relief groove {*}[lrepeat 415 test]
+	grid $Files::toolbar_cd -row 0 -column 2 -sticky we
+	grid [button $Files::toolbar_3dots 		-text {...}									-relief groove] -row 0 -column 3
+
+	grid columnconfigure $Files::toolbar 3 -weight 0 
+	grid columnconfigure $Files::toolbar 0 -weight 1 -minsize 0 -uniform 1
+	grid columnconfigure $Files::toolbar 1 -weight 1 -minsize 0 -uniform 1
+	grid columnconfigure $Files::toolbar 2 -weight 1 -minsize 0 -uniform 1
 	
 	
+	# to 
+	#bind $Files::toolbar_filter <Configure> {
+		#puts [list Files::path configure event %w %h  [winfo width $Files::toolbar ] [winfo viewable $Files::toolbar_3dots]]
+	#}
 	
 	#binding, when pointer inside the listbox
 	bind $Files::R <Motion> {
