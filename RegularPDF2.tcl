@@ -148,14 +148,18 @@ namespace eval Files {
 	set path 	[string cat $MainPane::path . files]
 	
 	set toolbar [string cat $Files::path . toolbar]
-	
-	set toolbar_3dots	[string cat $Files::toolbar .dots]
+	# its elements
+	set toolbar_dots	[string cat $Files::toolbar .dots]
 	set toolbar_filter	[string cat $Files::toolbar .filter]
 	set toolbar_reload	[string cat $Files::toolbar .reload]
 	set toolbar_cd		[string cat $Files::toolbar .cd]
-	
+	# scrollbars
 	set scrollh 		[string cat $Files::path . scrollh]
 	set scrollv 		[string cat $Files::path . scrollv]
+	# padding for toolbar elements
+	set toolbar_pad		5
+	# toolbar menu (shrunk-toolbar menu)
+	set dots_menu [string cat $Files::path .menu]
 	
 	#Icons listbox (Left)												#Files listbox (Right)
 	set L [string cat $Files::path . incons_listbox] ;					set R [string cat $Files::path . files_listbox]			
@@ -179,65 +183,90 @@ namespace eval Files {
 	set frame_borderwidth 	5
 	set highlight_color 	yellow
 	
+	# to store a toolbar's width once
+	set once 1
 }
 
 proc Files::create {args} {
 	#the frame
 	labelframe $Files::path  -text "Items in current directory" -relief ridge -bd $Files::frame_borderwidth
-	#frame parent's background
+	# frame Parent's background
 	set Pbg [[winfo parent $Files::path] cget -background]
-	#the left listbox for Icons
+	# left listbox for Icons
 	listbox $Files::L -relief flat -highlightthickness 2 -highlightcolor blue \
 	-background $Pbg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center
-	#right-hand side listbox for listing files
+	# right hand-side listbox for listing files
 	listbox $Files::R -relief flat -highlightthickness 2 -highlightcolor blue \
 	-background $Pbg -cursor hand2 -activestyle none -selectmode browse -listvar Files::Rvar
-	#the toolbar
+	# toolbar
 	frame $Files::toolbar -relief groove -borderwidth 10 -height 50
-	# set up the scrollbars
+	# scrollbars
 	scrollbar $Files::scrollh -orient vertical -relief groove -command {$Files::R yview}
 	scrollbar $Files::scrollv -orient horizontal -relief groove -command {$Files::R xview}
-	#
+	# L and R update the scrollbars
 	$Files::R configure -yscrollcommand {$Files::scrollh set}
 	$Files::R configure -xscrollcommand {$Files::scrollv set}
-	#
-	# pack the frame
-	# pack $Files::path 			-side left 	-fill y
+	# {...} menu
+	menu $Files::dots_menu -tearoff 0
+	# toolbar elements
+	button $Files::toolbar_filter 	-text {Filter PDF Files}					-relief groove
+	button $Files::toolbar_reload 	-text "$Icon::Unicode::Reload Reload"		-relief groove
+	button $Files::toolbar_cd 		-text "$Icon::Unicode::FolderOpen List via OS' File explorer" -relief groove -command {Files::list_ [tk_chooseDirectory -initialdir $Files::dir]}
+	button $Files::toolbar_dots 	-text {...}									-relief groove
+	
+	
+	# Occupy a pane in the panedwindow
 	$MainPane::path add $Files::path
 	# pack the scroll bars
 	pack $Files::scrollh -side right 	-fill y
 	pack $Files::scrollv -side bottom 	-fill x
 	# pack the toolbar
 	pack $Files::toolbar 		-side top 	-fill x		-padx 10 	-pady 10 -expand 0
-	# packing the list boxes
+	# pack the list boxes
 	pack $Files::L $Files::R 	-side left 	-fill y
 	pack config $Files::R 		-side left 	-fill both -expand 1
 	
-	# create and pack contents of the toolbar
-	#pack [button $Files::toolbar_filter 	-text {Filter PDF Files}					-relief groove] 	-side left		-padx 2 -expand 1 -fill none
-	#pack [button $Files::toolbar_reload 	-text "$Icon::Unicode::Reload Reload"		-relief groove] 	-side left		-padx 2 -expand 1 -fill none
-	#pack [button $Files::toolbar_cd 		-text "$Icon::Unicode::FolderOpen Change Directory"	-relief groove] 	-side left		-padx 2 -expand 1 -fill none
-	#pack [button $Files::toolbar_3dots 		-text {...}									-relief groove] 	-side left		-padx 2 -expand 1 -fill x
-
-	grid [button $Files::toolbar_filter 	-text {Filter PDF Files}					-relief groove] -row 0 -column 0 -sticky we
-	grid [button $Files::toolbar_reload 	-text "$Icon::Unicode::Reload Reload"		-relief groove] -row 0 -column 1 -sticky we
-	# option menu button + descendant menu
-	tk_optionMenu $Files::toolbar_cd 		Files::cd_var {} -text "$Icon::Unicode::FolderOpen Change Directory"	-relief groove {*}[lrepeat 415 test]
-	grid $Files::toolbar_cd -row 0 -column 2 -sticky we
-	grid [button $Files::toolbar_3dots 		-text {...}									-relief groove] -row 0 -column 3
+	# position toolbar elements
+	grid $Files::toolbar_filter 	-row 0 -column 0 -sticky we	
+	grid $Files::toolbar_reload 	-row 0 -column 1 -sticky we
+	grid $Files::toolbar_cd 		-row 0 -column 2 -sticky we	-padx $Files::toolbar_pad
+	grid $Files::toolbar_dots 		-row 0 -column 3			
 
 	grid columnconfigure $Files::toolbar 3 -weight 0 
-	grid columnconfigure $Files::toolbar 0 -weight 1 -minsize 0 -uniform 1
-	grid columnconfigure $Files::toolbar 1 -weight 1 -minsize 0 -uniform 1
-	grid columnconfigure $Files::toolbar 2 -weight 1 -minsize 0 -uniform 1
+	grid columnconfigure $Files::toolbar 0 -weight 2 -minsize 0 -uniform 1
+	grid columnconfigure $Files::toolbar 1 -weight 2 -minsize 0 -uniform 1
+	grid columnconfigure $Files::toolbar 2 -weight 2 -minsize 0 -uniform 1
+	
+	# set the {...} menu
+	$Files::toolbar_dots configure -command [list Menu::post $Files::toolbar_dots $Files::dots_menu]
+	
+	# bind once
+	bind . <Visibility> {
+		# to avoid width being 1
+		set Files::once [winfo width $Files::toolbar_cd]
+		# actual bind
+		bind $Files::toolbar <Configure> {
+			#puts [list Files::path configure event %w %h  [winfo width $Files::toolbar ] [winfo viewable $Files::toolbar_3dots]]
+			#set w [winfo width $Files::toolbar ]
+			set b [winfo width $Files::toolbar_cd]
+			#puts [list current width $b / $Files::once ratio [expr ${b}.0 / $Files::once] ]
+			set ratio [expr {($b+0.0) / $Files::once}]
+			if {$ratio < 0.4} {
+				# shitty nomenclature
+				set widget [lindex [grid slaves $Files::toolbar -row 0] 1]
+				grid forget $widget
+				$Files::dots_menu add command -label [$widget cget -text] -command [$widget cget -command]
+				bind $Files::toolbar <Configure> {}
+				}
+				
+				
+		}
+		bind $Files::toolbar <Visibility> {}
+	}
 	
 	
-	# to 
-	#bind $Files::toolbar_filter <Configure> {
-		#puts [list Files::path configure event %w %h  [winfo width $Files::toolbar ] [winfo viewable $Files::toolbar_3dots]]
-	#}
 	
-	#binding, when pointer inside the listbox
+	# when the pointer is inside the listbox
 	bind $Files::R <Motion> {
 		set index [%W index @%x,%y]
 		#"deselect" all, costly
@@ -251,7 +280,7 @@ proc Files::create {args} {
 		#save that that has been highlighted's index
 		set Files::last_h $index
 	}
-	#when it leaves
+	# when it leaves
 	bind $Files::R <Leave> {
 		#costly
 		#for [list set len [expr [%W size] - 1]] {$len >= 0} [list incr len -1] { %W itemconfigure $len -background {}}
@@ -259,8 +288,7 @@ proc Files::create {args} {
 		if {$Files::last_h ne {}} {%W itemconfigure $Files::last_h -background {}}
 	}
 	
-	#when an item is selected
-	
+	# when an item is selected
 	bind $Files::R <<ListboxSelect>> {
 		# current selected Index
 		set index 	[%W curselection]
