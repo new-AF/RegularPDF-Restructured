@@ -5,9 +5,28 @@
 package require Tk
 package require TclOO
 
+# Window Path Naming Guide:
+# .Prefix_name[.Prefix_name[...]]
+# Prefix	-> type of Window
+# b		=>	Button
+# f		=>	Frame
+# l		=>	Label
+# lf	=>	Labelframe
+# m		=> 	Menu
+# pw 	=>	PanedWindow
+# sb	=>	Scrollbar
+# tl	=>	Toplevel
+# ttkSG =>	ttk::sizegrip
+# ttkSP	=>	ttk::Separator
 
 namespace eval RootWindow {
-	set path {.}
+	
+	set width	700
+	set height	400
+	set screen_w	[winfo vrootwidth .]
+	set screen_h	[winfo vrootheight .]
+	set x			[expr {$RootWindow::screen_w / 2 - $RootWindow::width /2}]
+	set y			[expr {$RootWindow::screen_h / 2 - $RootWindow::height /2}]
 }
 
 namespace eval Icon {
@@ -28,8 +47,8 @@ namespace eval Icon {
 }
 
 proc RootWindow::modify {} {
-	wm title $RootWindow::path RegularPDF
-	wm geometry $RootWindow::path "700x400+[expr [winfo vrootwidth $RootWindow::path]/2-350]+[expr [winfo vrootheight $RootWindow::path]/2-200]"
+	wm title 	. RegularPDF
+	wm geometry . ${RootWindow::width}x${RootWindow::height}+${RootWindow::x}+${RootWindow::y}
 
 }
 
@@ -37,12 +56,14 @@ namespace eval Util {
 	
 }
 
-proc Util::get_center [ list win [list relative_to {}] ] {
+proc get_center [ list win [list relative_to {}] ] {
 	#Todo: implement relative_to
-	set w [expr "[winfo vrootwidth .]/2 - [winfo width $win]/2"]
-	set h [expr "[winfo vrootheight .]/2 - [winfo height $win]/2"]
+	set RootWindow::screen_w [winfo vrootwidth .]
+	set RootWindow::screen_h [winfo vrootheight .]
+	set w [expr "$RootWindow::screen_w / 2 - [winfo width $win]/2"]
+	set h [expr "$RootWindow::screen_h /2 - [winfo height $win]/2"]
 	
-	return +$w+$h
+	return +${w}+${h}
 }
 
 proc Util::show_console {} {
@@ -117,52 +138,56 @@ proc Util::len_range [list from to [list by 1]] {
 	return [Util::range $from [expr {$to - 1}] $by ]
 }
 namespace eval About {
-	set path .top
+	
 }
 
 
 proc About::create {args} {
-	toplevel $About::path
-	wm withdraw $About::path
-	wm protocol $About::path WM_DELETE_WINDOW {wm withdraw $About::path}
-	wm title $About::path About
+	#set path .tl_about
+	toplevel 	.tl_about
+	wm withdraw .tl_about
+	wm protocol .tl_about WM_DELETE_WINDOW {wm withdraw .tl_about}
+	wm title 	.tl_about About
 	#puts Aboutcreate
 }
 
 proc About::show args {
-	wm deicon $About::path
-	wm geometry $About::path [Util::get_center $About::path]
+	wm deicon 	.tl_about
+	wm geometry .tl_about [Util::get_center .tl_about]
 }
 namespace eval MainPane {
-	set path .pane
+	#set path .pw_pane
 	set background coral
 }
 
 proc MainPane::create args {
-	panedwindow $MainPane::path -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -background $MainPane::background
-	pack $MainPane::path -expand 1 -fill both -side bottom
+	
+	panedwindow .pw_pane -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -background $MainPane::background
+	pack 		.pw_pane -expand 1 -fill both -side bottom
 	#puts MainPanecreate
 }
 
 namespace eval Files {
-	set path 	[string cat $MainPane::path . files]
-	
-	set toolbar [string cat $Files::path . toolbar]
-	# its elements
-	set toolbar_dots	[string cat $Files::toolbar .dots]
-	set toolbar_filter	[string cat $Files::toolbar .filter]
-	set toolbar_reload	[string cat $Files::toolbar .reload]
-	set toolbar_cd		[string cat $Files::toolbar .cd]
-	# scrollbars
-	set scrollh 		[string cat $Files::path . scrollh]
-	set scrollv 		[string cat $Files::path . scrollv]
+
+	#set path 			.pw_pane.lf_files
+	#set toolbar 		.pw_pane.lf_files.f_toolbar
+	#set toolbar_dots	.pw_pane.lf_files.f_toolbar .b_dots
+	#set toolbar_filter	.pw_pane.lf_files.f_toolbar.b_filter
+	#set toolbar_reload	.pw_pane.lf_files.f_toolbar.b_reload
+	#set toolbar_cd		.pw_pane.lf_files.f_toolbar.b_cd
+	#set scrollh 		.pw_pane.lf_files.sb_h
+	#set scrollv 		.pw_pane.lf_files.sb_v
+	#set dots_menu		.pw_pane.lf_files.m_menu
+	#set L				.pw_pane.lf_files.lb_l
+	#set R				.pw_pane.lf_files.lb_r	
 	# padding for toolbar elements
-	set toolbar_pad		5
-	# toolbar menu (shrunk-toolbar menu)
-	set dots_menu [string cat $Files::path .menu]
+	
+	set toolbar_pad		10
+	
+	
 	
 	#Icons listbox (Left)												#Files listbox (Right)
-	set L [string cat $Files::path . incons_listbox] ;					set R [string cat $Files::path . files_listbox]			
+			
 	
 	#Icions listbox variable											#Icons listbox variable
 	set Lvar {}	;														set Rvar {}
@@ -183,91 +208,133 @@ namespace eval Files {
 	set frame_borderwidth 	5
 	set highlight_color 	yellow
 	
-	# to store a toolbar's width once
-	set once 1
+	# initial width of a toolbar button
+	set initial {}
 }
 
 proc Files::create {args} {
-	#the frame
-	labelframe $Files::path  -text "Items in current directory" -relief ridge -bd $Files::frame_borderwidth
-	# frame Parent's background
-	set Pbg [[winfo parent $Files::path] cget -background]
-	# left listbox for Icons
-	listbox $Files::L -relief flat -highlightthickness 2 -highlightcolor blue \
-	-background $Pbg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center
-	# right hand-side listbox for listing files
-	listbox $Files::R -relief flat -highlightthickness 2 -highlightcolor blue \
-	-background $Pbg -cursor hand2 -activestyle none -selectmode browse -listvar Files::Rvar
-	# toolbar
-	frame $Files::toolbar -relief groove -borderwidth 10 -height 50
-	# scrollbars
-	scrollbar $Files::scrollh -orient vertical -relief groove -command {$Files::R yview}
-	scrollbar $Files::scrollv -orient horizontal -relief groove -command {$Files::R xview}
+	
+	## Constructing Windows/Widgets
+		# the frame
+		labelframe 	.pw_pane.lf_files 	-text "Items in current directory" -relief ridge -bd $Files::frame_borderwidth
+		# frame Parent's background
+		set Pbg [.pw_pane cget -background]
+		# left listbox for Icons
+		listbox		.pw_pane.lf_files.lb_l		-relief flat -highlightthickness 2 -highlightcolor blue  -background $Pbg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center
+		# right hand-side listbox for listing files
+		listbox 	.pw_pane.lf_files.lb_r -relief flat -highlightthickness 2 -highlightcolor blue \
+		-background $Pbg -cursor hand2 -activestyle none -selectmode browse -listvar Files::Rvar
+		# toolbar
+		frame 		.pw_pane.lf_files.f_toolbar -relief groove -borderwidth 10 -height 50
+		# scrollbars
+		scrollbar 	.pw_pane.lf_files.sb_h -orient vertical -relief groove -command {.pw_pane.lf_files.lb_r yview}
+		scrollbar 	.pw_pane.lf_files.sb_v -orient horizontal -relief groove -command {.pw_pane.lf_files.lb_r xview}
+		# {...} menu
+		menu 		.pw_pane.lf_files.m_dots 	-tearoff 0
+		# toolbar elements
+		button 		.pw_pane.lf_files.f_toolbar.b_filter 	-text {Filter PDF Files}					-relief groove
+		button 		.pw_pane.lf_files.f_toolbar.b_reload 	-text "$Icon::Unicode::Reload Reload"		-relief groove
+		button 		.pw_pane.lf_files.f_toolbar.b_cd 		-text "$Icon::Unicode::FolderOpen List via OS' File explorer" -relief groove -command {Files::list_ [tk_chooseDirectory -initialdir $Files::dir]}
+		button 		.pw_pane.lf_files.f_toolbar.b_dots 		-text {...} 								-relief groove
+		
+		# Invisible Toolbar labels (to be used for event bindings
+		label 		.pw_pane.lf_files.f_toolbar.l1 -bg black
+		label 		.pw_pane.lf_files.f_toolbar.l2 -bg yellow
+		label 		.pw_pane.lf_files.f_toolbar.l3 -bg blue
+		
+		
+	## End of Construction	
+	
 	# L and R update the scrollbars
-	$Files::R configure -yscrollcommand {$Files::scrollh set}
-	$Files::R configure -xscrollcommand {$Files::scrollv set}
-	# {...} menu
-	menu $Files::dots_menu -tearoff 0
-	# toolbar elements
-	button $Files::toolbar_filter 	-text {Filter PDF Files}					-relief groove
-	button $Files::toolbar_reload 	-text "$Icon::Unicode::Reload Reload"		-relief groove
-	button $Files::toolbar_cd 		-text "$Icon::Unicode::FolderOpen List via OS' File explorer" -relief groove -command {Files::list_ [tk_chooseDirectory -initialdir $Files::dir]}
-	button $Files::toolbar_dots 	-text {...}									-relief groove
-	
-	
+	.pw_pane.lf_files.lb_r configure -yscrollcommand {.pw_pane.lf_files.sb_h set}
+	.pw_pane.lf_files.lb_r configure -xscrollcommand {.pw_pane.lf_files.sb_v set}
 	# Occupy a pane in the panedwindow
-	$MainPane::path add $Files::path
+	.pw_pane add .pw_pane.lf_files
 	# pack the scroll bars
-	pack $Files::scrollh -side right 	-fill y
-	pack $Files::scrollv -side bottom 	-fill x
-	# pack the toolbar
-	pack $Files::toolbar 		-side top 	-fill x		-padx 10 	-pady 10 -expand 0
+	pack 		.pw_pane.lf_files.sb_h -side right 	-fill y
+	pack 		.pw_pane.lf_files.sb_v -side bottom 	-fill x
+	# pack the toolbar(s)
+	pack .pw_pane.lf_files.f_toolbar 		-side top 	-fill x		-padx 10 	-pady 10 -expand 0
 	# pack the list boxes
-	pack $Files::L $Files::R 	-side left 	-fill y
-	pack config $Files::R 		-side left 	-fill both -expand 1
+	pack .pw_pane.lf_files.lb_l 	-side left 	-fill y
+	pack .pw_pane.lf_files.lb_r 	-side left 	-fill both -expand 1
 	
 	# position toolbar elements
-	grid $Files::toolbar_filter 	-row 0 -column 0 -sticky we	
-	grid $Files::toolbar_reload 	-row 0 -column 1 -sticky we
-	grid $Files::toolbar_cd 		-row 0 -column 2 -sticky we	-padx $Files::toolbar_pad
-	grid $Files::toolbar_dots 		-row 0 -column 3			
-
-	grid columnconfigure $Files::toolbar 3 -weight 0 
-	grid columnconfigure $Files::toolbar 0 -weight 2 -minsize 0 -uniform 1
-	grid columnconfigure $Files::toolbar 1 -weight 2 -minsize 0 -uniform 1
-	grid columnconfigure $Files::toolbar 2 -weight 2 -minsize 0 -uniform 1
+	grid .pw_pane.lf_files.f_toolbar.b_filter 	-row 0 -column 0 -sticky we	
+	grid .pw_pane.lf_files.f_toolbar.b_reload 	-row 0 -column 1 -sticky we
+	grid .pw_pane.lf_files.f_toolbar.b_cd 		-row 0 -column 2 -sticky we	
+	grid .pw_pane.lf_files.f_toolbar.b_dots 		-row 0 -column 3 -sticky e	
 	
-	# set the {...} menu
-	$Files::toolbar_dots configure -command [list Menu::post $Files::toolbar_dots $Files::dots_menu]
+	grid columnconfigure .pw_pane.lf_files.f_toolbar all -weight 1 -minsize 0 -uniform 1
+	grid columnconfigure .pw_pane.lf_files.f_toolbar 3 -weight 0  -uniform 2 -pad $Files::toolbar_pad
 	
-	# bind once
-	bind . <Visibility> {
-		# to avoid width being 1
-		set Files::once [winfo width $Files::toolbar_cd]
-		# actual bind
-		bind $Files::toolbar <Configure> {
-			#puts [list Files::path configure event %w %h  [winfo width $Files::toolbar ] [winfo viewable $Files::toolbar_3dots]]
-			#set w [winfo width $Files::toolbar ]
-			set b [winfo width $Files::toolbar_cd]
-			#puts [list current width $b / $Files::once ratio [expr ${b}.0 / $Files::once] ]
-			set ratio [expr {($b+0.0) / $Files::once}]
-			if {$ratio < 0.4} {
-				# shitty nomenclature
-				set widget [lindex [grid slaves $Files::toolbar -row 0] 1]
-				grid forget $widget
-				$Files::dots_menu add command -label [$widget cget -text] -command [$widget cget -command]
-				bind $Files::toolbar <Configure> {}
-				}
-				
-				
+	grid .pw_pane.lf_files.f_toolbar.l1  -row 1 -column 0 -sticky w
+	grid .pw_pane.lf_files.f_toolbar.l2  -row 1 -column 1 -sticky w
+	grid .pw_pane.lf_files.f_toolbar.l3  -row 1 -column 2 -sticky w
+	
+	# (invibilbe) label -> button mapping
+	
+	
+	
+	# ON visibility DO 
+	# 1) set canonical width of any toolbar button
+	# 2) set padx for (invisible) labels
+	# 3) bind each on <Map> and <Unmap> effictevly to test if visible with the padding applied.
+	bind .pw_pane.lf_files.f_toolbar.l3 <Visibility> {
+		#puts This[list grid slaves .pw_pane.lf_files.f_toolbar -row 1] 
+		#foreach e [grid slaves .pw_pane.lf_files.f_toolbar -row 0] {puts [list $e 's width > [winfo width $e] < [winfo reqwidth $e] ]}
+		#puts ------------------------------
+		#foreach e [grid slaves .pw_pane.lf_files.f_toolbar -row 1] {puts [list $e 's width > [winfo width $e] < [winfo reqwidth $e] ]}
+		set Files::initial [winfo width .pw_pane.lf_files.f_toolbar.b_filter]
+		# since B is returned as LIFO
+		# remove the last added button (...)
+		set B [lrange [grid slaves .pw_pane.lf_files.f_toolbar -row 0] 1 end]
+		set L [grid slaves .pw_pane.lf_files.f_toolbar -row 1]
+		
+		set count 0
+		set tmp $Files::initial
+		foreach l $L b $B {
+			# l -> label; b -> button
+			puts [list Files::initial-> $Files::initial l-> $l b-> $b]
+			grid config $l -padx [set tmp [expr {$tmp / 4} ]]
+			# if visible
+			# remove it (the menu command as substitute for the off-grdided button) in a LIFO fashion.
+			bind $l <Map> ".pw_pane.lf_files.m_dots delete $count ;
+							grid $b {*}[grid info $b]"
+							
+			# on invisility
+			bind $l <Unmap> ".pw_pane.lf_files.m_dots add command -label $count -label {[$b cget -text]} ;
+							grid forget $b
+							"
+			incr count
 		}
-		bind $Files::toolbar <Visibility> {}
+		
+		# run all above once.
+		bind .pw_pane.lf_files.f_toolbar.l3 <Visibility> {}
 	}
 	
+	# set -command of ... menu
+	.pw_pane.lf_files.f_toolbar.b_dots configure -command [list Menu::post .pw_pane.lf_files.f_toolbar.b_dots .pw_pane.lf_files.m_dots]
 	
+	
+	#bind .pw_pane.lf_files.f_toolbar <Configure> {
+			##puts [list Files::path configure event %w %h  [winfo width .pw_pane.lf_files.f_toolbar ] [winfo viewable .pw_pane.lf_files.f_toolbar_3dots]]
+	#		set b [winfo width .pw_pane.lf_files.f_toolbar.b_cd]
+			#puts [list current width $b / $Files::once ratio [expr ${b}.0 / $Files::once] ]
+	#		set ratio [expr {($b+0.0) / $Files::once}]
+	#		if {$ratio < 0.4} {
+				# shitty nomenclature
+	#			set widget [lindex [grid slaves .pw_pane.lf_files.f_toolbar -row 0] 1]
+	#			grid forget $widget
+	#			.pw_pane.lf_files.m_dots add command -label [$widget cget -text] -command [$widget cget -command]
+	#			bind .pw_pane.lf_files.f_toolbar <Configure> {}
+	#			}
+				
+				
+	#}
 	
 	# when the pointer is inside the listbox
-	bind $Files::R <Motion> {
+	bind .pw_pane.lf_files.lb_r <Motion> {
 		set index [%W index @%x,%y]
 		#"deselect" all, costly
 		#for [list set len [expr [%W size] - 1]] {$len >= 0} [list incr len -1] { %W itemconfigure $len -background {}}
@@ -281,7 +348,7 @@ proc Files::create {args} {
 		set Files::last_h $index
 	}
 	# when it leaves
-	bind $Files::R <Leave> {
+	bind .pw_pane.lf_files.lb_r <Leave> {
 		#costly
 		#for [list set len [expr [%W size] - 1]] {$len >= 0} [list incr len -1] { %W itemconfigure $len -background {}}
 		#un-highlight the last index
@@ -289,11 +356,11 @@ proc Files::create {args} {
 	}
 	
 	# when an item is selected
-	bind $Files::R <<ListboxSelect>> {
+	bind .pw_pane.lf_files.lb_r <<ListboxSelect>> {
 		# current selected Index
 		set index 	[%W curselection]
 		# what's on it
-		set Label 	[$Files::R get $index]
+		set Label 	[.pw_pane.lf_files.lb_r get $index]
 		# if <-
 		
 		# Assuming R is cleared
@@ -342,9 +409,9 @@ proc Files::list_ [list [list path ./] [list bypass 0] ] {
 	set Files::Lvar [lrepeat [expr [llength $d ]+ 1 ] $Icon::Unicode::FolderClosed ]
 	
 	#
-	#set index [$Files::R index @[winfo x $Files::R],[winfo y $Files::R] ]
+	#set index [.pw_pane.lf_files.lb_r index @[winfo x .pw_pane.lf_files.lb_r],[winfo y .pw_pane.lf_files.lb_r] ]
 	#
-	#$Files::R itemconfigure $index -background $Files::highlight_color
+	#.pw_pane.lf_files.lb_r itemconfigure $index -background $Files::highlight_color
 }
 proc Files::list_volumes lst {
 	#lst => list of volumes
@@ -381,13 +448,14 @@ proc Tooltip::place args {
 }
 namespace eval Menu {
 	
+	set children [list .m_root .m_document .m_page .m_root.m_Help]
 	#Root Menus
-	set mRoot 		.mRoot
-	set mDocument 	.mDocument	
-	set mPage 		.mPage
+	#set mRoot 		.mRoot
+	#set mDocument 	.mDocument	
+	#set mPage 		.mPage
 	
 	#cascade Root Menus
-	set mHelp 		${Menu::mRoot}.mHelp
+	#set mHelp 		${Menu::mRoot}.mHelp
 	
 	#labels
 	set labels [dict create \
@@ -419,12 +487,14 @@ namespace eval Menu {
 			  ]
 	
 	# info about each root menu's children
-	set chRoot			[dict create menu $Menu::mRoot		cascade_1	[dict create 1 $Menu::mHelp] command_1 [list 3 2]]
-	set chDocument 		[dict create menu $Menu::mDocument	command_1	[list 5 6 7] ]
-	set chPage			[dict create menu $Menu::mPage	command_1	[list 8 9] separator_1 x command_2 [list 10 11]]
-	set chHelp 			[dict create menu $Menu::mHelp	command_1	[list 4]]
+	set chRoot			[dict create menu .m_root  cascade_1	[dict create 1 .m_root.m_Help]  command_1 [list 3 2] ]
+							
+	set chDocument 		[dict create menu .m_document  command_1	[list 5 6 7] ]
+							
+	set chPage			[dict create menu .m_page  command_1	[list 8 9]  separator_1 x  command_2 [list 10 11] ]
+							
+	set chHelp 			[dict create menu .m_root.m_Help  command_1	[list 4] ]
 
-	 
 }
 
 	
@@ -436,7 +506,7 @@ proc Menu::create args {
 	#foreach m [info vars Menu::m*] {
 	#	menu [set $m] -tearoff 0
 	#}
-	foreach m [list $Menu::mRoot $Menu::mDocument $Menu::mPage $Menu::mHelp] { menu $m -tearoff 0 }
+	foreach m $Menu::children { menu $m -tearoff 0 }
 	unset m
 	
 	
@@ -461,7 +531,7 @@ proc Menu::create args {
 	}
 	
 	#Enview On-screen ones. 
-	$RootWindow::path config -menu $Menu::mRoot
+	{.} config -menu .m_root
 }
 
 
@@ -496,8 +566,8 @@ namespace eval NorthBar {
 }
 
 proc NorthBar::create args {
-	frame $NorthBar::path -borderwidth $NorthBar::border_width -relief flat -background lightblue
-	pack $NorthBar::path -side top -fill x
+	frame		.f_toolbar -borderwidth $NorthBar::border_width -relief flat -background lightblue
+	pack 		.f_toolbar -side top -fill x
 	# For Testing purposes only.
 		#pack [button ${NorthBar::path}.b -text NorthBar] -expand 1
 		# 2 Separators
@@ -509,7 +579,7 @@ proc NorthBar::new_space_block args {
 	
 	# specify the button's attributes to make it behave as a textless block, and then call new_button to create it.
 	# Tomodify: space_block_#Replace count here
-	set b [NorthBar::new_button space_block_[incr NorthBar::children_count] -background [$NorthBar::path cget -background] -state disabled -relief flat pack -expand 0 -fill y]
+	set b [NorthBar::new_button space_block_[incr NorthBar::children_count] -background [.f_toolbar cget -background] -state disabled -relief flat pack -expand 0 -fill y]
 	#puts [list [winfo width $b]  [winfo reqwidth $b]]
 	
 	#append the child
@@ -531,7 +601,7 @@ proc NorthBar::new_button [list name args] {
 	incr NorthBar::children_count
 	
 		# if name is empty => .toolbar.button_block_(Count)
-		if {$name eq {}} { set n [string cat $NorthBar::path {.} button_block_  $NorthBar::children_count] }
+		if {$name eq {}} { set n [string cat .f_toolbar {.} button_block_  $NorthBar::children_count] }
 	
 		# if {#} exists in Button creation arguments:
 		if { [set Hashtag [string first {#} $args] ]!= {-1} } { set args [string replace $args $Hashtag $Hashtag $n]  }
@@ -546,7 +616,7 @@ proc NorthBar::new_button [list name args] {
 	set type [ if {$type == {-1}} {subst 0} else { set tmp [lindex $args $type+1] ; set args [lreplace $args $type $type+1] ; subst $tmp} ]
 	
 	#get name/ partial window path name from $args[0] if it doesn't exist already.			Then 'right shift' the arguments
-	if ![info exists n] { set n [string cat $NorthBar::path {.} $name ] } ;					#	set args [lrange $args 1 end]
+	if ![info exists n] { set n [string cat .f_toolbar {.} $name ] } ;					#	set args [lrange $args 1 end]
 	
 	
 	# index of place/pack/grid word.														# the last of those (non-empty ones)
@@ -694,7 +764,7 @@ proc NorthBar::menu_buttons_switch w {
 	
 	if {$str eq {Up}} {
 			#set the Menu Bar
-			$RootWindow::path config -menu $Menu::mRoot
+			{.} config -menu .m_root
 			#Get all menu buttons
 			set all [ lmap e $NorthBar::menu_button_children { concat [dict get $NorthBar::children $e] } ]
 			#remove them
@@ -703,7 +773,7 @@ proc NorthBar::menu_buttons_switch w {
 			$w config -text [lreplace [lreplace $text 2 2 Down] 0 0 $Icon::Unicode::DownBoldArrow]
 		} else {
 			#remove the menu bar
-			$RootWindow::path config -menu {}
+			{.} config -menu {}
 			#Get all menu buttons
 			set all [ lmap e $NorthBar::menu_button_children { concat [dict get $NorthBar::children $e] } ]
 			#pack them, before .toolbar.menu_switch
@@ -714,6 +784,10 @@ proc NorthBar::menu_buttons_switch w {
 }
 
 proc main { } {
+	
+	# the resize grip
+	ttk::sizegrip	.ttksg_resize
+	pack .ttksg_resize -side bottom -fill x
 	
 	set os [lindex [array get tcl_platform os] 1]
 	#Position the Root window
@@ -748,12 +822,14 @@ proc main { } {
 	
 	# For Testing purposes only,
 	# Before window creation and visibility it's all 0 0 0...
-	puts [list -x [winfo x $MainPane::path] -y [winfo y $MainPane::path] \
-		  -rootx [winfo rootx $MainPane::path] -rooty [winfo rooty $MainPane::path] \
-		  -vrootx [winfo vrootx $MainPane::path] -vrooty [winfo vrooty $MainPane::path]]
+	puts [list -x [winfo x .pw_pane] -y [winfo y .pw_pane] \
+		  -rootx [winfo rootx .pw_pane] -rooty [winfo rooty .pw_pane] \
+		  -vrootx [winfo vrootx .pw_pane] -vrooty [winfo vrooty .pw_pane]]
 	
-	# For Testing purposes only, of $MainPane::path
-	place [button [set RootWindow::path]b -text TempButton -command [list puts [list Only a temporary Button] ]] -x 0 -y 100
+	# For Testing purposes only, of .pw_pane
+	place [button .b -text TempButton -command [list puts [list Only a temporary Button] ]] -x 0 -y 100
+	
+	
 }
 
 
