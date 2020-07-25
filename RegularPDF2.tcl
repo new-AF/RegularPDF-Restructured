@@ -31,6 +31,9 @@ namespace eval RootWindow {
 
 namespace eval Icon {
 	namespace eval Unicode {
+		set Dot				"\ud83d\udf84"
+		set 3Dots			[string repeat $Icon::Unicode::Dot 3]
+		set QuasiFilter		"\u29d6"
 		set UpDart 			"\u2b9d"
 		set DownDart 		"\u2b9f"
 		set DownArrow		"\u25bc"
@@ -186,6 +189,7 @@ namespace eval Files {
 	
 	
 	
+	
 	#Icons listbox (Left)												#Files listbox (Right)
 			
 	
@@ -208,8 +212,16 @@ namespace eval Files {
 	set frame_borderwidth 	5
 	set highlight_color 	yellow
 	
-	# initial width of a toolbar button
-	set initial {}
+	# toolbar children					# its length
+	set toolbar_children [list ]		; set toolbar_children_length {}
+	# Index of which one is last non-hidden button?
+	set index_last_on_toolbar {}
+	# Index last item in ...  menu
+	set index_last_on_menu {}
+	# its width
+	set Lwidth {}
+	# columnconfigure of any button on the toolbar 
+	set Lcolumnconfigure {}
 }
 
 proc Files::create {args} {
@@ -232,15 +244,14 @@ proc Files::create {args} {
 		# {...} menu
 		menu 		.pw_pane.lf_files.m_dots 	-tearoff 0
 		# toolbar elements
-		button 		.pw_pane.lf_files.f_toolbar.b_filter 	-text {Filter PDF Files}					-relief groove
-		button 		.pw_pane.lf_files.f_toolbar.b_reload 	-text "$Icon::Unicode::Reload Reload"		-relief groove
-		button 		.pw_pane.lf_files.f_toolbar.b_cd 		-text "$Icon::Unicode::FolderOpen List via OS' File explorer" -relief groove -command {Files::list_ [tk_chooseDirectory -initialdir $Files::dir]}
-		button 		.pw_pane.lf_files.f_toolbar.b_dots 		-text {...} 								-relief groove
+		button 		.pw_pane.lf_files.f_toolbar.b_filter 	-text "$Icon::Unicode::QuasiFilter Filter PDF Files"			-relief groove -overrelief solid
+		button 		.pw_pane.lf_files.f_toolbar.b_reload 	-text "$Icon::Unicode::Reload Reload"							-relief groove -overrelief solid
+		button 		.pw_pane.lf_files.f_toolbar.b_cd 		-text "$Icon::Unicode::FolderOpen List via OS' File explorer" 	-relief groove -command {Files::list_ [tk_chooseDirectory -initialdir $Files::dir]}  -overrelief solid
+		button 		.pw_pane.lf_files.f_toolbar.b_dots 		-text $Icon::Unicode::3Dots 								-relief groove -overrelief solid
 		
 		# Invisible Toolbar labels (to be used for event bindings
-		label 		.pw_pane.lf_files.f_toolbar.l1 -bg black
-		label 		.pw_pane.lf_files.f_toolbar.l2 -bg yellow
-		label 		.pw_pane.lf_files.f_toolbar.l3 -bg blue
+		label 		.pw_pane.lf_files.f_toolbar.l1 -bg blue
+		label 		.pw_pane.lf_files.f_toolbar.l2 -bg red
 		
 		
 	## End of Construction	
@@ -263,16 +274,14 @@ proc Files::create {args} {
 	grid .pw_pane.lf_files.f_toolbar.b_filter 	-row 0 -column 0 -sticky we	
 	grid .pw_pane.lf_files.f_toolbar.b_reload 	-row 0 -column 1 -sticky we
 	grid .pw_pane.lf_files.f_toolbar.b_cd 		-row 0 -column 2 -sticky we	
-	grid .pw_pane.lf_files.f_toolbar.b_dots 		-row 0 -column 3 -sticky e	
+	grid .pw_pane.lf_files.f_toolbar.b_dots 	-row 0 -column 3 -sticky we
 	
 	grid columnconfigure .pw_pane.lf_files.f_toolbar all -weight 1 -minsize 0 -uniform 1
-	grid columnconfigure .pw_pane.lf_files.f_toolbar 3 -weight 0  -uniform 2 -pad $Files::toolbar_pad
+	grid columnconfigure .pw_pane.lf_files.f_toolbar 3 -weight 0  -uniform 2
 	
-	grid .pw_pane.lf_files.f_toolbar.l1  -row 1 -column 0 -sticky w
-	grid .pw_pane.lf_files.f_toolbar.l2  -row 1 -column 1 -sticky w
-	grid .pw_pane.lf_files.f_toolbar.l3  -row 1 -column 2 -sticky w
+	grid .pw_pane.lf_files.f_toolbar.l1  -row 1 -column 0 -sticky w -columnspan 3
+	grid .pw_pane.lf_files.f_toolbar.l2  -row 2 -column 0 -sticky w -columnspan 3
 	
-	# (invibilbe) label -> button mapping
 	
 	
 	
@@ -280,58 +289,73 @@ proc Files::create {args} {
 	# 1) set canonical width of any toolbar button
 	# 2) set padx for (invisible) labels
 	# 3) bind each on <Map> and <Unmap> effictevly to test if visible with the padding applied.
-	bind .pw_pane.lf_files.f_toolbar.l3 <Visibility> {
-		#puts This[list grid slaves .pw_pane.lf_files.f_toolbar -row 1] 
-		#foreach e [grid slaves .pw_pane.lf_files.f_toolbar -row 0] {puts [list $e 's width > [winfo width $e] < [winfo reqwidth $e] ]}
-		#puts ------------------------------
-		#foreach e [grid slaves .pw_pane.lf_files.f_toolbar -row 1] {puts [list $e 's width > [winfo width $e] < [winfo reqwidth $e] ]}
-		set Files::initial [winfo width .pw_pane.lf_files.f_toolbar.b_filter]
-		# since B is returned as LIFO
-		# remove the last added button (...)
-		set B [lrange [grid slaves .pw_pane.lf_files.f_toolbar -row 0] 1 end]
-		set L [grid slaves .pw_pane.lf_files.f_toolbar -row 1]
+	bind .pw_pane.lf_files.f_toolbar.l1 <Visibility> {
+	
+		# since Items are returned as LIFO
+		set Files::toolbar_children [lreverse [grid slaves .pw_pane.lf_files.f_toolbar -row 0]]
+		# except ... menu
+		set Files::toolbar_children [lrange $Files::toolbar_children 0 end-1]
+		set Files::toolbar_children_length [llength $Files::toolbar_children]
+		# Index of last button
+		set Files::index_last_on_toolbar [expr {$Files::toolbar_children_length - 1}]
+		# Nothing is there
+		set Files::index_last_on_menu -1
+		# its columnconfigure
+		set Files::Lcolumnconfigure [grid columnconfigure .pw_pane.lf_files.f_toolbar $Files::index_last_on_toolbar]
+		# Width of Toolbar - width(... button)
+		#set Files::Lwidth [winfo width [lindex $Files::toolbar_children $Files::index_last_on_toolbar] ]
+		set Files::Lwidth [expr { [winfo width .pw_pane.lf_files.f_toolbar] - [winfo width .pw_pane.lf_files.f_toolbar.b_dots] }]
+		# Invisible Indicators (by magic of [grid]'s -padx option)
+		grid config .pw_pane.lf_files.f_toolbar.l1 -padx [list [expr {$Files::Lwidth / 2 - [winfo width .pw_pane.lf_files.f_toolbar.l1] } ] 0]
+		grid config .pw_pane.lf_files.f_toolbar.l2 -padx [list [expr {$Files::Lwidth 	 - [winfo width .pw_pane.lf_files.f_toolbar.l2] } ] 0]
+
 		
-		set count 0
-		set tmp $Files::initial
-		foreach l $L b $B {
-			# l -> label; b -> button
-			puts [list Files::initial-> $Files::initial l-> $l b-> $b]
-			grid config $l -padx [set tmp [expr {$tmp / 4} ]]
-			# if visible
-			# remove it (the menu command as substitute for the off-grdided button) in a LIFO fashion.
-			bind $l <Map> ".pw_pane.lf_files.m_dots delete $count ;
-							grid $b {*}[grid info $b]"
-							
-			# on invisility
-			bind $l <Unmap> ".pw_pane.lf_files.m_dots add command -label $count -label {[$b cget -text]} ;
-							grid forget $b
-							"
-			incr count
+		#puts [list ->> $Files::toolbar_children]
+		# bind on <Unmap> and <Map>
+		bind .pw_pane.lf_files.f_toolbar.l1 <Unmap> {
+			set b [lindex $Files::toolbar_children $Files::index_last_on_toolbar]
+			#puts [list b is $b]
+			grid forget $b
+			# LIFO Order
+			.pw_pane.lf_files.m_dots insert $Files::index_last_on_toolbar command -label [$b cget -text] -command [$b cget -command]
+			incr Files::index_last_on_menu
+			
+			grid columnconfigure .pw_pane.lf_files.f_toolbar $Files::index_last_on_toolbar -weight 0 -uniform {}
+			# quarter the padding distance
+			puts [list _newx1 [set _newx1 [list [expr {[winfo width .pw_pane.lf_files.f_toolbar] / 2  } ]  0] ]]
+			puts [list _newx2 [set _newx2 [list [expr {[winfo width .pw_pane.lf_files.f_toolbar] } ]  0]   ]]
+			grid config .pw_pane.lf_files.f_toolbar.l1 -padx $_newx1
+			grid config .pw_pane.lf_files.f_toolbar.l2 -padx $_newx2
+			incr Files::index_last_on_toolbar -1
+			}
+		bind .pw_pane.lf_files.f_toolbar.l2 <Map> {
+			if { $Files::index_last_on_menu  !=  -1 } {
+				set _col_target [expr $Files::index_last_on_toolbar+1]
+				set b [lindex $Files::toolbar_children $_col_target]
+				puts [list b is $b ]
+				grid $b -row 0 -column $_col_target -sticky we
+				.pw_pane.lf_files.m_dots delete $Files::index_last_on_menu
+				incr Files::index_last_on_menu -1
+				
+				grid columnconfigure .pw_pane.lf_files.f_toolbar $_col_target {*}$Files::Lcolumnconfigure
+				# x2 x-padding distance
+					puts [list _backx1 [set _newx1 [list [expr { [lindex [dict get [grid  info .pw_pane.lf_files.f_toolbar.l1] -padx] 0] * 2  } ]  0]   ]]
+					puts [list _backx2 [set _newx2 [list [expr { [lindex [dict get [grid  info .pw_pane.lf_files.f_toolbar.l2] -padx] 0] * 2  } ]  0]   ]]
+				
+					grid config .pw_pane.lf_files.f_toolbar.l1 -padx $_newx1
+					grid config .pw_pane.lf_files.f_toolbar.l2 -padx $_newx2
+
+				incr Files::index_last_on_toolbar
+			}
+				
 		}
-		
 		# run all above once.
-		bind .pw_pane.lf_files.f_toolbar.l3 <Visibility> {}
+		bind .pw_pane.lf_files.f_toolbar.l1 <Visibility> {}
 	}
 	
-	# set -command of ... menu
+	# show overflow menu i.e. ... menu on .. button
 	.pw_pane.lf_files.f_toolbar.b_dots configure -command [list Menu::post .pw_pane.lf_files.f_toolbar.b_dots .pw_pane.lf_files.m_dots]
 	
-	
-	#bind .pw_pane.lf_files.f_toolbar <Configure> {
-			##puts [list Files::path configure event %w %h  [winfo width .pw_pane.lf_files.f_toolbar ] [winfo viewable .pw_pane.lf_files.f_toolbar_3dots]]
-	#		set b [winfo width .pw_pane.lf_files.f_toolbar.b_cd]
-			#puts [list current width $b / $Files::once ratio [expr ${b}.0 / $Files::once] ]
-	#		set ratio [expr {($b+0.0) / $Files::once}]
-	#		if {$ratio < 0.4} {
-				# shitty nomenclature
-	#			set widget [lindex [grid slaves .pw_pane.lf_files.f_toolbar -row 0] 1]
-	#			grid forget $widget
-	#			.pw_pane.lf_files.m_dots add command -label [$widget cget -text] -command [$widget cget -command]
-	#			bind .pw_pane.lf_files.f_toolbar <Configure> {}
-	#			}
-				
-				
-	#}
 	
 	# when the pointer is inside the listbox
 	bind .pw_pane.lf_files.lb_r <Motion> {
@@ -784,7 +808,8 @@ proc NorthBar::menu_buttons_switch w {
 }
 
 proc main { } {
-	
+	# always on top
+	wm attributes . -topmost 1
 	# the resize grip
 	ttk::sizegrip	.ttksg_resize
 	pack .ttksg_resize -side bottom -fill x
