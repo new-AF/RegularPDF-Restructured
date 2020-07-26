@@ -3,7 +3,6 @@
 # Description: A PDF Authoring Tool
 
 package require Tk
-package require TclOO
 
 # Window Path Naming Guide:
 # .Prefix_name[.Prefix_name[...]]
@@ -27,8 +26,11 @@ namespace eval RootWindow {
 	set screen_h	[winfo vrootheight .]
 	set x			[expr {$RootWindow::screen_w / 2 - $RootWindow::width /2}]
 	set y			[expr {$RootWindow::screen_h / 2 - $RootWindow::height /2}]
+	#Position the Root window
+	wm title 		. RegularPDF
+	wm geometry 	. ${RootWindow::width}x${RootWindow::height}+${RootWindow::x}+${RootWindow::y}
+	##############################################################################################
 }
-
 namespace eval Icon {
 	namespace eval Unicode {
 		set Dot				"\ud83d\udf84"
@@ -46,20 +48,163 @@ namespace eval Icon {
 		set Back 			"\u2190"
 		set Reload 			"\u21bb"
 		set Folders			"\ud83d\uddc2"
+		set Copyright		"\u00a9"
 	}
 }
-
-proc RootWindow::modify {} {
-	wm title 	. RegularPDF
-	wm geometry . ${RootWindow::width}x${RootWindow::height}+${RootWindow::x}+${RootWindow::y}
-
-}
-
 namespace eval Util {
 	
 }
+namespace eval About {
+	#
+	#create a toplevel window, make it invisible (iconify it), and 'bind' the X button
+	toplevel 	.tl_about
+	wm withdraw .tl_about
+	wm protocol .tl_about WM_DELETE_WINDOW {wm withdraw .tl_about}
+	wm title 	.tl_about About
+	##############################################################################################
+	#
+	# e.g. -family {Segoe UI} -size 9 -weight normal -slant roman -underline 0 -overstrike 0
+	set Font [font configure TkDefaultFont]
+	set fsize [dict get $About::Font -size]
+	set fname [dict get $About::Font -family]
+	#puts [list About default font -> $Font]
+	##############################################################################################
+	#
+	label .tl_about.l_l1 -text [wm title .] -font [list -family Tahoma -size [expr {$About::fsize * 2}]]
+	label .tl_about.l_l2 -text {A PDF Authoring Tool} -font [list -family Tahoma -size [expr {int($About::fsize * 1.5)}]]
+	label .tl_about.l_l3 -text "$Icon::Unicode::Copyright 2020 Abdullah Fatota"
+	##############################################################################################
+	#
+	pack .tl_about.l_l1 .tl_about.l_l2 .tl_about.l_l3 -pady 10 -padx 2cm
+	
+}
+namespace eval MainPane {
+	#set path .pw_pane
+	set background coral
+}
+namespace eval Files {
 
-proc get_center [ list win [list relative_to {}] ] {
+	#set path 			.pw_pane.lf_files
+	#set toolbar 		.pw_pane.lf_files.f_toolbar
+	#set toolbar_dots	.pw_pane.lf_files.f_toolbar .b_dots
+	#set toolbar_filter	.pw_pane.lf_files.f_toolbar.b_filter
+	#set toolbar_reload	.pw_pane.lf_files.f_toolbar.b_reload
+	#set toolbar_cd		.pw_pane.lf_files.f_toolbar.b_cd
+	#set scrollh 		.pw_pane.lf_files.sb_h
+	#set scrollv 		.pw_pane.lf_files.sb_v
+	#set dots_menu		.pw_pane.lf_files.m_menu
+	#set L				.pw_pane.lf_files.lb_l
+	#set R				.pw_pane.lf_files.lb_r	
+	# padding for toolbar elements
+	
+	set toolbar_pad		10
+	
+	#Icions listbox variable											#Icons listbox variable
+	set Lvar {}	;														set Rvar {}
+	
+	# var for other uses
+	set Bvar {}
+	# path of current directory											#"Dir Limit" Index
+	set dir [pwd]	;													set dir_limit {}												
+	
+	# index of last highlighted element
+	set last_h -1
+	
+	#aesthetic properties
+	set frame_borderwidth 	5
+	set highlight_color 	yellow
+	
+	# toolbar children					# its length
+	set toolbar_children [list ]		; set toolbar_children_length {}
+	# Index of which one is last non-hidden button?
+	set index_last_on_toolbar {}
+	# Index last item in ...  menu
+	set index_last_on_menu {}
+	# its width
+	set Lwidth {}
+	# columnconfigure of any button on the toolbar 
+	set Lcolumnconfigure {}
+}
+namespace eval Tooltip  {
+	set location {}
+	set pins 	[dict create]
+	set boards 	[dict create]
+}
+namespace eval Menu {
+	
+	set children [list .m_root .m_document .m_page .m_root.m_Help]
+	#Root Menus
+	#set mRoot 		.mRoot
+	#set mDocument 	.mDocument	
+	#set mPage 		.mPage
+	
+	#cascade Root Menus
+	#set mHelp 		${Menu::mRoot}.mHelp
+	
+	#labels
+	set labels [dict create \
+				1 Help \
+				2 Debug \
+				3 Console \
+				4 About \
+				5 New  \
+				6 Clone \
+				7 Close \
+				8 {Add New Page Above} \
+				9 {Add New Page Below} \
+				10 Delete \
+				11 Move]
+	
+	#commands 
+	set coms [dict create \
+			  1 null \
+			  2 Util::debug \
+			  3 Util::show_console \
+			  4 About::show \
+			  5 {} \
+			  6 {$whoobject clone $whocalled } \
+			  7 {} \
+			  8 {$whoobject up $whocalled} \
+			  9 {$whoobject down $whocalled} \
+			  10 { puts .mDoc_delete} \
+			  11 {$whoobject rename $whocalled }
+			  ]
+	
+	# info about each root menu's children
+	set chRoot			[dict create menu .m_root  cascade_1	[dict create 1 .m_root.m_Help]  command_1 [list 3 2] ]
+							
+	set chDocument 		[dict create menu .m_document  command_1	[list 5 6 7] ]
+							
+	set chPage			[dict create menu .m_page  command_1	[list 8 9]  separator_1 x  command_2 [list 10 11] ]
+							
+	set chHelp 			[dict create menu .m_root.m_Help  command_1	[list 4] ]
+
+}
+namespace eval Menu::DocPage {
+	#Todo: later
+}
+namespace eval NorthBar {
+	set path .toolbar
+	set border_width 0
+	
+	# Left to right, direction of laying elements.
+	set direction left
+	# For positioning purposes
+	set children [dict create]
+	set children_count 0
+	# For space_block buttons
+	set space_block_children [list]
+	
+	# Menu Buttons (or Blocks)
+	# 0 => Menu Bar (root Menu) is Visible, 1 => NorthBar Menu Buttons are visible,
+	set is_menu_button_mode_active 0
+	
+	set menu_button_children [list]
+	
+	set dart_children [dict create]
+	set testVar {}
+}
+proc Util::get_center [ list win [list relative_to {}] ] {
 	#Todo: implement relative_to
 	set RootWindow::screen_w [winfo vrootwidth .]
 	set RootWindow::screen_h [winfo vrootheight .]
@@ -68,11 +213,9 @@ proc get_center [ list win [list relative_to {}] ] {
 	
 	return +${w}+${h}
 }
-
 proc Util::show_console {} {
 	console show
 }
-
 proc Util::debug {} {
 	#objectpages
 	#PDF create stream text -text Messages -x 0
@@ -140,148 +283,104 @@ proc Util::range [list from to [list by 1]] {
 proc Util::len_range [list from to [list by 1]] {
 	return [Util::range $from [expr {$to - 1}] $by ]
 }
-namespace eval About {
-	
-}
-
-
-proc About::create {args} {
-	#set path .tl_about
-	toplevel 	.tl_about
-	wm withdraw .tl_about
-	wm protocol .tl_about WM_DELETE_WINDOW {wm withdraw .tl_about}
-	wm title 	.tl_about About
-	#puts Aboutcreate
-}
 
 proc About::show args {
 	wm deicon 	.tl_about
 	wm geometry .tl_about [Util::get_center .tl_about]
+	#
+	#wm attributes .tl_about -topmost 1
 }
-namespace eval MainPane {
-	#set path .pw_pane
-	set background coral
-}
-
 proc MainPane::create args {
 	
 	panedwindow .pw_pane -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -background $MainPane::background
 	pack 		.pw_pane -expand 1 -fill both -side bottom
 	#puts MainPanecreate
 }
-
-namespace eval Files {
-
-	#set path 			.pw_pane.lf_files
-	#set toolbar 		.pw_pane.lf_files.f_toolbar
-	#set toolbar_dots	.pw_pane.lf_files.f_toolbar .b_dots
-	#set toolbar_filter	.pw_pane.lf_files.f_toolbar.b_filter
-	#set toolbar_reload	.pw_pane.lf_files.f_toolbar.b_reload
-	#set toolbar_cd		.pw_pane.lf_files.f_toolbar.b_cd
-	#set scrollh 		.pw_pane.lf_files.sb_h
-	#set scrollv 		.pw_pane.lf_files.sb_v
-	#set dots_menu		.pw_pane.lf_files.m_menu
-	#set L				.pw_pane.lf_files.lb_l
-	#set R				.pw_pane.lf_files.lb_r	
-	# padding for toolbar elements
-	
-	set toolbar_pad		10
-	
-	
-	
-	
-	#Icons listbox (Left)												#Files listbox (Right)
-			
-	
-	#Icions listbox variable											#Icons listbox variable
-	set Lvar {}	;														set Rvar {}
-	
-	
-	# path of current directory											#"Dir Limit" Index
-	set dir [pwd]	;													set dir_limit {}												
-	
-	# is W indos. better asked is case sensitive
-	
-	# var for optionMenu widget
-	set cd_var {}
-	
-	# index of last highlighted element
-	set last_h {}
-	
-	#aesthetic properties
-	set frame_borderwidth 	5
-	set highlight_color 	yellow
-	
-	# toolbar children					# its length
-	set toolbar_children [list ]		; set toolbar_children_length {}
-	# Index of which one is last non-hidden button?
-	set index_last_on_toolbar {}
-	# Index last item in ...  menu
-	set index_last_on_menu {}
-	# its width
-	set Lwidth {}
-	# columnconfigure of any button on the toolbar 
-	set Lcolumnconfigure {}
-}
-
 proc Files::create {args} {
 	
-	## Constructing Windows/Widgets
-		# the frame
-		labelframe 	.pw_pane.lf_files 	-text "Items in current directory" -relief ridge -bd $Files::frame_borderwidth
-		# frame Parent's background
-		set Pbg [.pw_pane cget -background]
-		# left listbox for Icons
-		listbox		.pw_pane.lf_files.lb_l		-relief flat -highlightthickness 2 -highlightcolor blue  -background $Pbg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center
-		# right hand-side listbox for listing files
-		listbox 	.pw_pane.lf_files.lb_r -relief flat -highlightthickness 2 -highlightcolor blue \
-		-background $Pbg -cursor hand2 -activestyle none -selectmode browse -listvar Files::Rvar
-		# toolbar
-		frame 		.pw_pane.lf_files.f_toolbar -relief groove -borderwidth 10 -height 50
-		# scrollbars
-		scrollbar 	.pw_pane.lf_files.sb_h -orient vertical -relief groove -command {.pw_pane.lf_files.lb_r yview}
-		scrollbar 	.pw_pane.lf_files.sb_v -orient horizontal -relief groove -command {.pw_pane.lf_files.lb_r xview}
-		# {...} menu
-		menu 		.pw_pane.lf_files.m_dots 	-tearoff 0
-		# toolbar elements
-		button 		.pw_pane.lf_files.f_toolbar.b_filter 	-text "$Icon::Unicode::QuasiFilter Filter PDF Files"			-relief groove -overrelief solid
-		button 		.pw_pane.lf_files.f_toolbar.b_reload 	-text "$Icon::Unicode::Reload Reload"							-relief groove -overrelief solid
-		button 		.pw_pane.lf_files.f_toolbar.b_cd 		-text "$Icon::Unicode::FolderOpen List via OS' File explorer" 	-relief groove -command {Files::list_ [tk_chooseDirectory -initialdir $Files::dir]}  -overrelief solid
-		button 		.pw_pane.lf_files.f_toolbar.b_dots 		-text $Icon::Unicode::3Dots 								-relief groove -overrelief solid
-		
-		# Invisible Toolbar labels (to be used for event bindings
-		label 		.pw_pane.lf_files.f_toolbar.l1 -bg blue
-		label 		.pw_pane.lf_files.f_toolbar.l2 -bg red
-		
-		
-	## End of Construction	
+	# Constructing Windows/Widgets
+	# the frame
+	labelframe 	.pw_pane.lf_files 	-text "Items in current directory" -relief ridge -bd $Files::frame_borderwidth
+	# frame Parent's background
+	set Pbg [.pw_pane cget -background]
+	# left listbox for Icons
+	listbox		.pw_pane.lf_files.lb_l		-relief flat -highlightthickness 2 -highlightcolor blue  -background $Pbg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center
+	# right hand-side listbox for listing files
+	listbox 	.pw_pane.lf_files.lb_r -relief flat -highlightthickness 2 -highlightcolor blue \
+	-background $Pbg -cursor hand2 -activestyle none -selectmode browse -listvar Files::Rvar
+	# toolbar
+	frame 		.pw_pane.lf_files.f_toolbar -relief groove -borderwidth 10 -height 50
+	# scrollbars
+	scrollbar 	.pw_pane.lf_files.sb_h -orient vertical -relief groove -command {.pw_pane.lf_files.lb_r yview}
+	scrollbar 	.pw_pane.lf_files.sb_v -orient horizontal -relief groove -command {.pw_pane.lf_files.lb_r xview}
+	# {...} menu
+	menu 		.pw_pane.lf_files.m_dots 	-tearoff 0
+	# toolbar elements
+	button 		.pw_pane.lf_files.f_toolbar.b_filter 	-text "$Icon::Unicode::QuasiFilter Filter PDF Files"			-relief groove -overrelief solid
+	button 		.pw_pane.lf_files.f_toolbar.b_reload 	-text "$Icon::Unicode::Reload Reload"							-relief groove -overrelief solid
+	button 		.pw_pane.lf_files.f_toolbar.b_cd 		-text "$Icon::Unicode::FolderOpen List via OS' File explorer" 	-relief groove -command {Files::list_ [tk_chooseDirectory -initialdir $Files::dir]}  -overrelief solid
+	button 		.pw_pane.lf_files.f_toolbar.b_dots 		-text $Icon::Unicode::3Dots 								-relief groove -overrelief solid
 	
-	# L and R update the scrollbars
+	# Invisible Toolbar labels (to be used for event bindings
+	label 		.pw_pane.lf_files.f_toolbar.l1 -bg blue
+	label 		.pw_pane.lf_files.f_toolbar.l2 -bg red
+	##############################################################################################	
+	
+	# ... Button Post Menu
+	.pw_pane.lf_files.f_toolbar.b_dots configure -command [list Menu::post .pw_pane.lf_files.f_toolbar.b_dots .pw_pane.lf_files.m_dots]
+	.pw_pane.lf_files.m_dots add command -label "$Icon::Unicode::UpBoldArrow Bring Up Toolbar"
+	##############################################################################################
+	
+	# Filter PDFs
+	bind .pw_pane.lf_files.f_toolbar.b_filter <ButtonRelease> {
+		set all [.pw_pane.lf_files.lb_r get [expr $Files::dir_limit + 1] end]
+		#puts [list all -> $all]
+		#
+		set all [lsearch -all -inline $all *.pdf]
+		set Files::Bvar Files::Rvar
+		set Files::Rvar $all
+	}
+	##############################################################################################
+	
+	# configure L and R to update attached scrollbars
 	.pw_pane.lf_files.lb_r configure -yscrollcommand {.pw_pane.lf_files.sb_h set}
 	.pw_pane.lf_files.lb_r configure -xscrollcommand {.pw_pane.lf_files.sb_v set}
+	##############################################################################################
+	
 	# Occupy a pane in the panedwindow
 	.pw_pane add .pw_pane.lf_files
+	##############################################################################################
+	
 	# pack the scroll bars
 	pack 		.pw_pane.lf_files.sb_h -side right 	-fill y
 	pack 		.pw_pane.lf_files.sb_v -side bottom 	-fill x
-	# pack the toolbar(s)
+	##############################################################################################
+	
+	# pack the toolbar
 	pack .pw_pane.lf_files.f_toolbar 		-side top 	-fill x		-padx 10 	-pady 10 -expand 0
+	##############################################################################################
+	
 	# pack the list boxes
 	pack .pw_pane.lf_files.lb_l 	-side left 	-fill y
 	pack .pw_pane.lf_files.lb_r 	-side left 	-fill both -expand 1
+	##############################################################################################
 	
-	# position toolbar elements
+	# grid button(s) on toolbar
 	grid .pw_pane.lf_files.f_toolbar.b_filter 	-row 0 -column 0 -sticky we	
 	grid .pw_pane.lf_files.f_toolbar.b_reload 	-row 0 -column 1 -sticky we
 	grid .pw_pane.lf_files.f_toolbar.b_cd 		-row 0 -column 2 -sticky we	
 	grid .pw_pane.lf_files.f_toolbar.b_dots 	-row 0 -column 3 -sticky we
+	##############################################################################################
 	
+	# uniform width columns
 	grid columnconfigure .pw_pane.lf_files.f_toolbar all -weight 1 -minsize 0 -uniform 1
 	grid columnconfigure .pw_pane.lf_files.f_toolbar 3 -weight 0  -uniform 2
+	##############################################################################################
 	
+	# grid Indicator labels
 	grid .pw_pane.lf_files.f_toolbar.l1  -row 1 -column 0 -sticky w -columnspan 3
 	grid .pw_pane.lf_files.f_toolbar.l2  -row 2 -column 0 -sticky w -columnspan 3
-	
+	##############################################################################################
 	
 	
 	
@@ -309,9 +408,8 @@ proc Files::create {args} {
 		grid config .pw_pane.lf_files.f_toolbar.l1 -padx [list [expr {$Files::Lwidth / 2 - [winfo width .pw_pane.lf_files.f_toolbar.l1] } ] 0]
 		grid config .pw_pane.lf_files.f_toolbar.l2 -padx [list [expr {$Files::Lwidth 	 - [winfo width .pw_pane.lf_files.f_toolbar.l2] } ] 0]
 
-		
-		#puts [list ->> $Files::toolbar_children]
-		# bind on <Unmap> and <Map>
+
+		# bind <Unmap> and <Map>
 		bind .pw_pane.lf_files.f_toolbar.l1 <Unmap> {
 			set b [lindex $Files::toolbar_children $Files::index_last_on_toolbar]
 			#puts [list b is $b]
@@ -338,7 +436,7 @@ proc Files::create {args} {
 				incr Files::index_last_on_menu -1
 				
 				grid columnconfigure .pw_pane.lf_files.f_toolbar $_col_target {*}$Files::Lcolumnconfigure
-				# x2 x-padding distance
+				# x4 x-padding distance
 					puts [list _backx1 [set _newx1 [list [expr { [lindex [dict get [grid  info .pw_pane.lf_files.f_toolbar.l1] -padx] 0] * 2  } ]  0]   ]]
 					puts [list _backx2 [set _newx2 [list [expr { [lindex [dict get [grid  info .pw_pane.lf_files.f_toolbar.l2] -padx] 0] * 2  } ]  0]   ]]
 				
@@ -352,32 +450,37 @@ proc Files::create {args} {
 		# run all above once.
 		bind .pw_pane.lf_files.f_toolbar.l1 <Visibility> {}
 	}
-	
-	# show overflow menu i.e. ... menu on .. button
-	.pw_pane.lf_files.f_toolbar.b_dots configure -command [list Menu::post .pw_pane.lf_files.f_toolbar.b_dots .pw_pane.lf_files.m_dots]
+	##############################################################################################
 	
 	
-	# when the pointer is inside the listbox
+	# when the pointer hovers on the listbox
 	bind .pw_pane.lf_files.lb_r <Motion> {
 		set index [%W index @%x,%y]
+		#puts [list index is $index]
 		#"deselect" all, costly
 		#for [list set len [expr [%W size] - 1]] {$len >= 0} [list incr len -1] { %W itemconfigure $len -background {}}
 		#another approach, if the variable holding the last index is not empty, de-highlight it
-		if {$Files::last_h ne {}} {%W itemconfigure $Files::last_h -background {}}
+		# expensive
+		if {$Files::last_h > -1 && $Files::last_h < [%W size]} {%W itemconfigure $Files::last_h -background {}}
 		#hightlight index "cursor" in R
-		%W itemconfigure $index -background $Files::highlight_color
+		#
+		
+		if {$Files::last_h > -1 && $Files::last_h < [%W size]} {%W itemconfigure $index -background $Files::highlight_color}
 		#in L
 		
 		#save that that has been highlighted's index
 		set Files::last_h $index
 	}
+	##############################################################################################
+	
 	# when it leaves
 	bind .pw_pane.lf_files.lb_r <Leave> {
 		#costly
 		#for [list set len [expr [%W size] - 1]] {$len >= 0} [list incr len -1] { %W itemconfigure $len -background {}}
 		#un-highlight the last index
-		if {$Files::last_h ne {}} {%W itemconfigure $Files::last_h -background {}}
+		if {$Files::last_h > -1 && $Files::last_h < [%W size]} {%W itemconfigure $Files::last_h -background {}}
 	}
+	##############################################################################################
 	
 	# when an item is selected
 	bind .pw_pane.lf_files.lb_r <<ListboxSelect>> {
@@ -388,7 +491,7 @@ proc Files::create {args} {
 		# if <-
 		
 		# Assuming R is cleared
-		set Files::last_h {}
+		set Files::last_h {-1}
 		
 		if {$index == 0} {
 			# full path of doing <-
@@ -398,9 +501,12 @@ proc Files::create {args} {
 			if { $Files::dir in [set volumes [file volumes]] } { Files::list_volumes $volumes } else { Files::list_ [string cat $Files::dir /] }
 			# glob tolerates an extra / on end
 			# puts [list to is $Files::dir]
-		} elseif {$index < $Files::dir_limit} { set Files::dir [file join $Files::dir $Label];  ;Files::list_ [string cat $Files::dir /] }
+		} elseif {$index < $Files::dir_limit} { set Files::dir [file join $Files::dir $Label];  ;Files::list_ [string cat $Files::dir /] } else {
+			#
+			puts [list file -> [file join $Files::dir $Label]]
+		}
 	}
-
+	##############################################################################################
 }
 proc Files::list_ [list [list path ./] [list bypass 0] ] {
 	
@@ -460,67 +566,10 @@ proc Files::list_volumes lst {
 	set Files::Lvar [lrepeat [expr [llength $d ] + 1 ] $Icon::Unicode::Folders]
 	
 }
-namespace eval Tooltip  {
-	set location {}
-	set pins 	[dict create]
-	set boards 	[dict create]
-}
-
 proc Tooltip::place args {
 	#Tooltip::place -widget x -anchor 'ne' -show which Board
 	Util::args $args -widget -anchor -show
 }
-namespace eval Menu {
-	
-	set children [list .m_root .m_document .m_page .m_root.m_Help]
-	#Root Menus
-	#set mRoot 		.mRoot
-	#set mDocument 	.mDocument	
-	#set mPage 		.mPage
-	
-	#cascade Root Menus
-	#set mHelp 		${Menu::mRoot}.mHelp
-	
-	#labels
-	set labels [dict create \
-				1 Help \
-				2 Debug \
-				3 Console \
-				4 About \
-				5 New  \
-				6 Clone \
-				7 Close \
-				8 {Add New Page Above} \
-				9 {Add New Page Below} \
-				10 Delete \
-				11 Move]
-	
-	#commands 
-	set coms [dict create \
-			  1 null \
-			  2 Util::debug \
-			  3 Util::show_console \
-			  4 About::show \
-			  5 {} \
-			  6 {$whoobject clone $whocalled } \
-			  7 {} \
-			  8 {$whoobject up $whocalled} \
-			  9 {$whoobject down $whocalled} \
-			  10 { puts .mDoc_delete} \
-			  11 {$whoobject rename $whocalled }
-			  ]
-	
-	# info about each root menu's children
-	set chRoot			[dict create menu .m_root  cascade_1	[dict create 1 .m_root.m_Help]  command_1 [list 3 2] ]
-							
-	set chDocument 		[dict create menu .m_document  command_1	[list 5 6 7] ]
-							
-	set chPage			[dict create menu .m_page  command_1	[list 8 9]  separator_1 x  command_2 [list 10 11] ]
-							
-	set chHelp 			[dict create menu .m_root.m_Help  command_1	[list 4] ]
-
-}
-
 	
 proc Menu::create args {
 	# Create Menus in the Menu Toolbar, cascade menus, their children commands and associated bindings
@@ -557,38 +606,9 @@ proc Menu::create args {
 	#Enview On-screen ones. 
 	{.} config -menu .m_root
 }
-
-
-namespace eval Menu::DocPage {
-	#Todo: later
-}
-
 proc Menu::post {at menu} {
 	$menu post [winfo rootx $at ]  [expr [winfo rooty $at ]+[winfo height $at ]]
 }
-
-namespace eval NorthBar {
-	set path .toolbar
-	set border_width 0
-	
-	# Left to right, direction of laying elements.
-	set direction left
-	# For positioning purposes
-	set children [dict create]
-	set children_count 0
-	# For space_block buttons
-	set space_block_children [list]
-	
-	# Menu Buttons (or Blocks)
-	# 0 => Menu Bar (root Menu) is Visible, 1 => NorthBar Menu Buttons are visible,
-	set is_menu_button_mode_active 0
-	
-	set menu_button_children [list]
-	
-	set dart_children [dict create]
-	set testVar {}
-}
-
 proc NorthBar::create args {
 	frame		.f_toolbar -borderwidth $NorthBar::border_width -relief flat -background lightblue
 	pack 		.f_toolbar -side top -fill x
@@ -597,7 +617,7 @@ proc NorthBar::create args {
 		# 2 Separators
 		NorthBar::new_space_block
 		NorthBar::new_space_block
-		NorthBar::new_button name -text X -relief solid pack -expand 0 -padx 2  -with_separator
+		#NorthBar::new_button name -text X -relief solid pack -expand 0 -padx 2  -with_separator
 }
 proc NorthBar::new_space_block args {
 	
@@ -611,7 +631,6 @@ proc NorthBar::new_space_block args {
 	
 	return $b
 }
-
 proc NorthBar::new_button [list name args] {
 	
 	# too complicated
@@ -815,8 +834,7 @@ proc main { } {
 	pack .ttksg_resize -side bottom -fill x
 	
 	set os [lindex [array get tcl_platform os] 1]
-	#Position the Root window
-	RootWindow::modify
+
 	
 	#Create on and off-screen Menu's. Enview .mRoot.
 	Menu::create
@@ -842,8 +860,6 @@ proc main { } {
 	#And populate it with dir items
 	Files::list_
 	
-	#create a [toplevel] window, make it invisible (iconify it), and 'bind' the X button
-	About::create
 	
 	# For Testing purposes only,
 	# Before window creation and visibility it's all 0 0 0...
