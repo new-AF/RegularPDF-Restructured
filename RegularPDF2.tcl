@@ -57,6 +57,54 @@ namespace eval Icon {
 namespace eval Util {
 	
 }
+# due to Tcl's [::tcl::mathfunc::rand]'s shortfallings
+proc Util::semiRandom [list [list subrange 1]] {
+	incr subrange -1
+	if {$subrange < 0} {
+		# Exceptions; while borrowing some Python nomenclature
+		throw [list Tcl RangeError RANGE_ZERO_OR_LESS] [list RangeError: subrange must be >= 1 Got ($subrange)]
+	}
+	return [string range [::tcl::mathfunc::rand] 2 [expr {$subrange + 2}] ]
+}
+
+# for 0-based indexing purposes
+proc Util::zero_semiRandom [list [list subrange 0]] {
+	if {$subrange < 0} {
+		# Exceptions; while borrowing some Python nomenclature
+		throw [list Tcl RangeError RANGE_LESS_THAN_ZERO] [list RangeError: subrange must be >= 0 Got ($subrange)]
+	}
+	return [string range [::tcl::mathfunc::rand] 2 [expr {$subrange + 2}] ]
+}
+proc Util::injectAndRemoveSwitchesFromAList [list listName args] {
+	
+	# emulate (passing by refernce) in Tcl
+	upvar 1 $listName targetList
+	
+	set opsWanted 		$args
+	set opsIndexes 		[lmap e $opsWanted {concat [lsearch -exact $targetList $e]}]
+	# to find element in args that are not index of -option or after it
+	#set opsIndexesNot	[Util::len_range 0  [llength $Args]]
+	#set opsIndexesNot	[lmap e $opsIndexesNot {if {$e in $opsIndexes || ($e - 1) in $opsIndexes } {continue} else {concat $e} }]
+	
+	# temporary name for holding (set tmp [lindex $Args $index+1])
+	# its name: tmpXXX must be free in the injected proc/level.
+	# while it's claimed generate new random number
+	#while {Yes} {
+	#	set tmpName tmp[Util::semiRandom 3]
+	#	if {[uplevel 1 "info exists $tmpName"] == 0} {
+	#		break
+	#	}
+	#}
+	
+	# inject and remove
+	foreach index $opsIndexes one $opsWanted {
+		set hereResult  [ if {$index == {-1}} {subst {}} else { subst [lindex $targetList $index+1] } ]
+		#puts [list hereResult $hereResult one $one]
+		uplevel 1 "set [string range $one 1 end] $hereResult"
+		set $targetList [lreplace $targetList $index $index+1]
+	}
+		
+}
 namespace eval About {
 	
 	# create a toplevel window ; make it invisible (iconify it) ;  'bind' the X button
@@ -227,27 +275,28 @@ namespace eval Menu {
 namespace eval Menu::DocPage {
 	#Todo: later
 }
-namespace eval NorthBar {
-	set path .toolbar
-	set border_width 0
+namespace eval Toolbar {
+
+	variable borderWidth 0
+	
+	frame		.fToolbar -borderwidth $Toolbar::borderWidth -relief flat -background lightblue
+	pack 		.fToolbar -side top -fill x
 	
 	# Left to right, direction of laying elements.
-	set direction left
-	# For positioning purposes
-	set children [dict create]
-	set children_count 0
-	# For space_block buttons
-	set space_block_children [list]
+	#set direction left
 	
-	# Menu Buttons (or Blocks)
-	# 0 => Menu Bar (root Menu) is Visible, 1 => NorthBar Menu Buttons are visible,
-	set is_menu_button_mode_active 0
+	# to keep track ; its count ; Indicies of Menu buttons in $children ; visiblility? 0/No => Menu Bar is Visible, 1/yes => Menu Buttons are visible ;
+	variable children [dict create]  childrenCount 0  menuButtons [list]  areMenuButtonsVisible No
 	
-	set menu_button_children [list]
-	
-	set dart_children [dict create]
-	set testVar {}
+
 }
+proc Toolbar::newPayload [list name args] {
+	set wanted [list ]
+	set class [lsearch -exact $args -Type ]
+	if {$class != -1} {}
+
+}
+namespace eval NorthBar {}
 proc Util::get_center [list win [list relative_to {}] ] {
 	#Todo: implement relative_to
 	set RootWindow::screenW [winfo vrootwidth .]
@@ -587,27 +636,18 @@ proc Tooltip::place args {
 proc Menu::post {at menu} {
 	$menu post [winfo rootx $at ]  [expr [winfo rooty $at ]+[winfo height $at ]]
 }
-proc NorthBar::create args {
-	frame		.fToolbar -borderwidth $NorthBar::border_width -relief flat -background lightblue
-	pack 		.fToolbar -side top -fill x
-	# For Testing purposes only.
-		#pack [button ${NorthBar::path}.b -text NorthBar] -expand 1
-		# 2 Separators
-		NorthBar::new_space_block
-		NorthBar::new_space_block
-		#NorthBar::new_button name -text X -relief solid pack -expand 0 -padx 2  -with_separator
-}
+
 proc NorthBar::new_space_block args {
 	
 	# specify the button's attributes to make it behave as a textless block, and then call new_button to create it.
 	# Tomodify: space_block_#Replace count here
-	set b [NorthBar::new_button space_block_[incr NorthBar::children_count] -background [.fToolbar cget -background] -state disabled -relief flat pack -expand 0 -fill y]
+	#set b [NorthBar::new_button space_block_[incr NorthBar::children_count] -background [.fToolbar cget -background] -state disabled -relief flat pack -expand 0 -fill y]
 	#puts [list [winfo width $b]  [winfo reqwidth $b]]
 	
 	#append the child
-	lappend NorthBar::space_block_children $NorthBar::children_count
+	#lappend NorthBar::space_block_children $NorthBar::children_count
 	
-	return $b
+	#return $b
 }
 proc NorthBar::new_button [list name args] {
 	
@@ -803,17 +843,17 @@ proc main { } {
 	set os [lindex [array get tcl_platform os] 1]
 	
 	#create and Enview (cause it to be visible) Top strip/Toolbar
-	NorthBar::create
+	#NorthBar::create
 	
 	
 	#create Menu Buttons/Blocks
-	NorthBar::create_menu_buttons
+	#NorthBar::create_menu_buttons
 	
 	#create the Menu Buttons switch button
-	NorthBar::create_menu_buttons_switch
+	#NorthBar::create_menu_buttons_switch
 	
 	#Test
-	NorthBar::new_button {} -type dart -text {Save as PDF} -command {puts [list -> %x %y]} -options [list {Use the built-in File lister} {Use the OS' native File explorer}] -default 1 pack -pady 1
+	#NorthBar::new_button {} -type dart -text {Save as PDF} -command {puts [list -> %x %y]} -options [list {Use the built-in File lister} {Use the OS' native File explorer}] -default 1 pack -pady 1
 
 	#enview a [label frame] and rest
 	Files::configure
