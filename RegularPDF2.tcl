@@ -98,7 +98,7 @@ proc Util::injectAndRemoveSwitchesFromAList [list listName args] {
 	
 	# inject and remove
 	foreach index $opsIndexes one $opsWanted {
-		set hereResult  [ if {$index == {-1}} {subst {}} else { subst [lindex $targetList $index+1] } ]
+		set hereResult  [ if {$index == {-1} || [llength $targetList]-1 == $index} {subst {{}}} else { subst [lindex $targetList $index+1] } ]
 		#puts [list hereResult $hereResult one $one]
 		uplevel 1 "set [string range $one 1 end] $hereResult"
 		set $targetList [lreplace $targetList $index $index+1]
@@ -291,11 +291,12 @@ namespace eval Toolbar {
 
 }
 proc Toolbar::newPayload [list name args] {
-	set wanted [list ]
-	set class [lsearch -exact $args -Type ]
-	if {$class != -1} {}
+	# extract and remove -Type
+	Util::injectAndRemoveSwitchesFromAList args -Type
+	puts [list Vars => [info vars] Type -> $Type]
 
 }
+Toolbar::newPayload n -options 123 -Type 
 namespace eval NorthBar {}
 proc Util::get_center [list win [list relative_to {}] ] {
 	#Todo: implement relative_to
