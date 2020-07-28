@@ -202,25 +202,27 @@ namespace eval Menu {
 			11 {} \
 	] \
 	all [dict create \
-	.mRoot 			[dict create cascades [list 1] commands [list 3 2] cascadesOrder [list 2 ] commandsOrder [list 0 1] separators [list ] separatorsOrder [list ] ] \
-	.mDocument 		[dict create cascades [list ] commands [list 5 6 7] cascadesOrder [list ] commandsOrder [list 0 1 2] separators [list ] separatorsOrder [list ] ] \
-	.mPage 			[dict create cascades [list ] commands [list 8 9 10 11] cascadesOrder [list ] commandsOrder [list 0 1 3 4] separators [list x] separatorsOrder [list 2] ] \
-	.mRoot.mHelp 	[dict create cascades [list ] commands [list 4] cascadesOrder [list ] commandsOrder [list 0] separators [list ] separatorsOrder [list ] ] \
+	.mRoot 			[dict create 0 {3} 1 {2} 2 {1} commands [list 0 1] separators [list ] cascades [list 2] ] \
+	.mDocument 		[dict create 0 {5} 1 {6} 2 {7} commands [list 0 1 2] cascades [list ] separators [list ] ] \
+	.mPage 			[dict create 0 {8} 1 {9} 2 {x} 3 {10} 4 {11} commands [list 0 1 3 4] cascades [list ] separators [list 2] ] \
+	.mRoot.mHelp 	[dict create 0 {4} commands [list 0] cascades [list ] separators [list ] ] \
 	]
 	
 	# creation
 	dict for {Key Value} $Menu::all {
 		menu $Key -tearoff 0
-		foreach element [dict get $Value cascades] order [dict get $Value cascadesOrder] { $Key insert $order cascade -label [dict get $Menu::labels $element] -menu [dict get $Menu::cascades $element] }
-		foreach element [dict get $Value commands] order [dict get $Value commandsOrder] { $Key insert $order command -label [dict get $Menu::labels $element] -command [dict get $Menu::commands $element] }
-		foreach element [dict get $Value separators] order [dict get $Value separatorsOrder] { $Key insert $order separator  }
+		foreach order [dict get $Value cascades] {set element [dict get $Value $order]; $Key insert $order cascade -label [dict get $Menu::labels $element] -menu [dict get $Menu::cascades $element] }
+		foreach order [dict get $Value commands] {set element [dict get $Value $order];  $Key insert $order command -label [dict get $Menu::labels $element] -command [dict get $Menu::commands $element] }
+		foreach order [dict get $Value separators] {set element [dict get $Value $order];  $Key insert $order separator  }
 		
 	}
+	
+	# creation
 	
 	# Enview root's elements. 
 	. config -menu .mRoot
 	
-
+	# end
 }
 namespace eval Menu::DocPage {
 	#Todo: later
@@ -740,24 +742,16 @@ proc NorthBar::new_dart [list n Args] {
 proc NorthBar::create_menu_buttons args {
 	# Create .toolbar.menu_button_x
 	
-	dict for {key val} $Menu::chRoot {
-		switch  [lindex [split $key _] 0] {
-
-			command {
-				foreach i $val {
-					NorthBar::new_button {} -text [dict get $Menu::labels $i] -command [dict get $Menu::coms $i] -relief flat -overrelief groove pack
-					lappend NorthBar::menu_button_children $NorthBar::children_count
-					}
-					
-			}
-			cascade {
-				dict for {key2 val2} $val {
-					# {#} will be replaced with name/path of the button
-					NorthBar::new_button {} -text [dict get $Menu::labels $key2] -command "Menu::post # $val2" -relief flat -overrelief groove pack }
-					lappend NorthBar::menu_button_children $NorthBar::children_count
-			}
+	set mRootChildren [dict get $Menu::all .mRoot]
+	dict for {order i} $mRootChildren {
+		if {$order in [dict get $mRootChildren cascades]} {
+			# {#} will be replaced with name/path of the button
+			NorthBar::new_button {} -text [dict get $Menu::labels $i] -command "Menu::post # [dict get $Menu::cascades $i]" -relief flat -overrelief groove pack
+			lappend NorthBar::menu_button_children $NorthBar::children_count
+			} elseif {$order in [dict get $mRootChildren commands]} {
+			NorthBar::new_button {} -text [dict get $Menu::labels $i] -command [dict get $Menu::commands $i] -relief flat -overrelief groove pack
+			lappend NorthBar::menu_button_children $NorthBar::children_count
 		}
-		
 	}
 }
 
@@ -813,7 +807,7 @@ proc main { } {
 	
 	
 	#create Menu Buttons/Blocks
-	# NorthBar::create_menu_buttons
+	NorthBar::create_menu_buttons
 	
 	#create the Menu Buttons switch button
 	NorthBar::create_menu_buttons_switch
