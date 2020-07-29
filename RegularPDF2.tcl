@@ -75,36 +75,141 @@ proc Util::zero_semiRandom [list [list subrange 0]] {
 	}
 	return [string range [::tcl::mathfunc::rand] 2 [expr {$subrange + 2}] ]
 }
-proc Util::injectAndRemoveSwitchesFromAList [list listName args] {
+proc Util::injectVariablesAndRemoveSwitchesFromAList [list listName args] {
 	
+	# args -> list of one or more wanted switches
 	# emulate (passing by refernce) in Tcl
 	upvar 1 $listName targetList
 	
-	set opsWanted 		$args
-	set opsIndexes 		[lmap e $opsWanted {concat [lsearch -exact $targetList $e]}]
-	# to find element in args that are not index of -option or after it
-	#set opsIndexesNot	[Util::len_range 0  [llength $Args]]
-	#set opsIndexesNot	[lmap e $opsIndexesNot {if {$e in $opsIndexes || ($e - 1) in $opsIndexes } {continue} else {concat $e} }]
-	
-	# temporary name for holding (set tmp [lindex $Args $index+1])
-	# its name: tmpXXX must be free in the injected proc/level.
-	# while it's claimed generate new random number
-	#while {Yes} {
-	#	set tmpName tmp[Util::semiRandom 3]
-	#	if {[uplevel 1 "info exists $tmpName"] == 0} {
-	#		break
-	#	}
-	#}
-	
-	# inject and remove
-	foreach index $opsIndexes one $opsWanted {
-		set hereResult  [ if {$index == {-1} || [llength $targetList]-1 == $index} {subst {{}}} else { subst [lindex $targetList $index+1] } ]
-		#puts [list hereResult $hereResult one $one]
-		uplevel 1 "set [string range $one 1 end] $hereResult"
-		set $targetList [lreplace $targetList $index $index+1]
+	set isPadded no
+	#puts [list injectVariablesAndRemoveSwitchesFromAList $targetList $args]
+	# spare one
+	try {
+		set dictList [dict create {*}$targetList ]
+	} trap {TCL WRONGARGS} {} {
+		set isPadded yes
+		set dictList [dict create {*}$targetList {}]
 	}
+	
+	
+	#puts [list injectVariablesAndRemoveSwitchesFromAList $dictList $args ]
+	
+	# inject
+	foreach option $args {
+		try {
+			set afterIndex [dict get $dictList $option]
+			set dictList [dict remove $dictList $option]
+		} trap {TCL LOOKUP DICT} {} {
+			set afterIndex {{}}
+		}
+		uplevel 1 "set [string range $option 1 end] $afterIndex"
+	}
+	#puts [list injectVariablesAndRemoveSwitchesFromAList $dictList $args ]
+	# remove
+	set targetList [list {*}$dictList]
+	if {$isPadded} {set targetList [lrange $targetList 0 end-1]}
 		
 }
+proc Util::ifStringFirstFoundReplace [list listName searchString replaceString] {
+	upvar 1 $listName targetList
+	if { [set Hashtag [string first {#} $targetList] ]!= {-1} } { set targetList [string replace $targetList $Hashtag $Hashtag $replaceString]  }
+}
+proc Util::splitOnWord [list listName Words] {
+	upvar 1 $listName targetList
+	# index of place/pack/grid word.														# the last of those (non-empty ones)
+	set index [lmap e $Words {concat [lsearch -exact $targetList $e]}] ;					set index [Util::max $index]
+
+	if {$index == -1} {
+		set Attr $targetList
+		set Geometry [list]
+		
+	} else {
+		#split args as 1: [button creation arguments (0)- $index-1] 							2: [place/pack/grid INSERTED$name - end]
+		set Attr  [lrange $targetList 0 [expr {$index - 1}] ]	;									set Geometry [lrange $targetList $index end ]
+	}
+	return [list $Attr $Geometry]
+}
+
+proc Util::get_center [list win [list relative_to {}] ] {
+	#Todo: implement relative_to
+	set RootWindow::screenW [winfo vrootwidth .]
+	set RootWindow::screenH [winfo vrootheight .]
+	set w [expr "$RootWindow::screenW / 2 - [winfo width $win]/2"]
+	set h [expr "$RootWindow::screenH /2 - [winfo height $win]/2"]
+	
+	return +${w}+${h}
+}
+proc Util::show_console {} {
+	console show
+}
+proc Util::debug {} {
+	#objectpages
+	#PDF create stream text -text Messages -x 0
+	set x [PDF create -ref page]
+	set y [PDF create -ref pages]
+	set z [PDF create -ref stream text -text HELLO -fontname /Font1 -fontsize 12] ; #-fontname Calibri
+	PDF create -hasref dict /Len *8
+	PDF update -hasref $x thing /Parent *$y /Contents *$z
+	PDF update -hasref 6 thing 0 *1
+	PDF update -hasref $y thing /Kids *6 /Count 1
+	PDF header
+	PDF trailer
+	PDF update $z stream add text -x 9 -y 19
+	set B [PDF create -ref catalog]
+	set I [PDF create -ref info]
+	PDF update -hasref end thing /Info *$I /Root *$B
+	PDF update -hasref $B thing /Pages *$y
+	PDF reftable
+	PDF display
+	concat
+}
+proc Util::max [list a args] {
+	#collect all arguments as a list.
+	set args [concat $a $args]
+	
+	set args [lsort -decreasing $args]
+	return [lindex $args 0]
+}
+proc Util::args {lst args} {
+	#Args $args -angles 60deg -points 0,0 +10,0 -10,-10 -anchor 1 -sides
+	#indexes of options: strings starting wtih {-[a...z]}
+	set x [lsearch -nocase -all $args -\[a-z\]* ] ;
+	#sotrage for thos options/switches
+	set d [dict create] ; 
+	
+	foreach name [list args lst] {
+		# 
+		upvar 0 $name var
+		# j => x[0 : end]	;	i => x[1 : end]
+		foreach i [list {*}[lrange $x 1 end] [llength $var]] j $x {
+			#puts "i-j  [expr {$i - $j} ] =[lrange $var $j+1 $i-1]="
+			# if an 'entry' exists between the two 'switches' set/override it as the value of the option either in args
+			dict set d [lindex $var $j] [expr { ($i - $j) > 1 ? [lrange $var $j+1 $i-1] : {} } ]
+		}
+		# or lst
+		set x [lsearch -all $lst -?* ]
+		if {$x eq {}} then {break}
+	}
+	#set con "$d"
+	#concat
+	set com [string cat {dict for {key value} } "{$d}" { {set [string range $key 1 end] $value}} ]
+	
+	#'inject' the variables into the calling function.
+	uplevel 1 $com
+	return x
+}
+proc Util::range [list from to [list by 1]] {
+	set ranges 	[list]
+	set last	$from
+	while { [incr last $by] <= $to } {lappend ranges $last}
+	if {$ranges ne {}} {set ranges [linsert $ranges 0 $from]}
+	return $ranges
+}
+# a hack and a terrible name
+proc Util::len_range [list from to [list by 1]] {
+	return [Util::range $from [expr {$to - 1}] $by ]
+}
+
 namespace eval About {
 	
 	# create a toplevel window ; make it invisible (iconify it) ;  'bind' the X button
@@ -285,98 +390,49 @@ namespace eval Toolbar {
 	# Left to right, direction of laying elements.
 	#set direction left
 	
-	# to keep track ; its count ; Indicies of Menu buttons in $children ; visiblility? 0/No => Menu Bar is Visible, 1/yes => Menu Buttons are visible ;
-	variable children [dict create]  childrenCount 0  menuButtons [list]  areMenuButtonsVisible No
+	# to keep track ; its count ; Indicies of Menu buttons in $children ; visiblility? 0/No => Menu Bar is Visible, 1/yes => Menu Buttons are visible ; pack LtR or RtL
+	variable children [dict create]  childrenCount 0  menuButtons [list]  areMenuButtonsVisible No packSide left
 	
 
 }
-proc Toolbar::newPayload [list name args] {
-	# extract and remove -Type
-	Util::injectAndRemoveSwitchesFromAList args -Type
-	puts [list Vars => [info vars] Type -> $Type]
-
-}
-Toolbar::newPayload n -options 123 -Type 
-namespace eval NorthBar {}
-proc Util::get_center [list win [list relative_to {}] ] {
-	#Todo: implement relative_to
-	set RootWindow::screenW [winfo vrootwidth .]
-	set RootWindow::screenH [winfo vrootheight .]
-	set w [expr "$RootWindow::screenW / 2 - [winfo width $win]/2"]
-	set h [expr "$RootWindow::screenH /2 - [winfo height $win]/2"]
+proc Toolbar::newPayload [list pathName args] {
+	# set the option argument of -Type and remove them from $args
+	Util::injectVariablesAndRemoveSwitchesFromAList args -Type -withSeparator ;#puts [list Vars => [info vars] Type -> $Type Args -> $args] ; if {$Type eq {}} {puts empty}
+	if {$Type eq {}} {set Type button}
 	
-	return +${w}+${h}
-}
-proc Util::show_console {} {
-	console show
-}
-proc Util::debug {} {
-	#objectpages
-	#PDF create stream text -text Messages -x 0
-	set x [PDF create -ref page]
-	set y [PDF create -ref pages]
-	set z [PDF create -ref stream text -text HELLO -fontname /Font1 -fontsize 12] ; #-fontname Calibri
-	PDF create -hasref dict /Len *8
-	PDF update -hasref $x thing /Parent *$y /Contents *$z
-	PDF update -hasref 6 thing 0 *1
-	PDF update -hasref $y thing /Kids *6 /Count 1
-	PDF header
-	PDF trailer
-	PDF update $z stream add text -x 9 -y 19
-	set B [PDF create -ref catalog]
-	set I [PDF create -ref info]
-	PDF update -hasref end thing /Info *$I /Root *$B
-	PDF update -hasref $B thing /Pages *$y
-	PDF reftable
-	PDF display
-	concat
-}
-proc Util::max [list a args] {
-	#collect all arguments as a list.
-	set args [concat $a $args]
+	Util::ifStringFirstFoundReplace args # $pathName
 	
-	set args [lsort -decreasing $args]
-	return [lindex $args 0]
-}
-proc Util::args {lst args} {
-	#Args $args -angles 60deg -points 0,0 +10,0 -10,-10 -anchor 1 -sides
-	#indexes of options: strings starting wtih {-[a...z]}
-	set x [lsearch -nocase -all $args -\[a-z\]* ] ;
-	#sotrage for thos options/switches
-	set d [dict create] ; 
+	#++childrenCount
+	incr Toolbar::childrenCount
 	
-	foreach name [list args lst] {
-		# 
-		upvar 0 $name var
-		# j => x[0 : end]	;	i => x[1 : end]
-		foreach i [list {*}[lrange $x 1 end] [llength $var]] j $x {
-			#puts "i-j  [expr {$i - $j} ] =[lrange $var $j+1 $i-1]="
-			# if an 'entry' exists between the two 'switches' set/override it as the value of the option either in args
-			dict set d [lindex $var $j] [expr { ($i - $j) > 1 ? [lrange $var $j+1 $i-1] : {} } ]
-		}
-		# or lst
-		set x [lsearch -all $lst -?* ]
-		if {$x eq {}} then {break}
+	lassign [Util::splitOnWord args [list pack grid plcae]] Attr Geom
+	
+	puts [list Attr => $Attr Geom -> $Geom] 
+	
+	# creation of button/...
+	set pathName [$Type $pathName {*}$Attr]
+	
+	#store the name/window path of the button as Value to Key $children_count
+	dict set Toolbar::children $Toolbar::childrenCount $pathName
+	
+	#pack/place/grid it
+	#{*}$Geometry
+	#To ensure conformity to NorthBar::direction.
+	switch [lindex $Geom 0] {
+		pack {
+			{*}[linsert $Geom 1 $pathName] -side $Toolbar::packSide
+			# if -with_separator is specified in $args, put a vertical ttk::separator in accordance with NorthBar::direction
+			if {$withSeparator ne {}} {
+				pack [ttk::separator ${pathName}_separator -orient vertical] -after $pathName -side $Toolbar::packSide -fill y -expand 0 -padx 1
+				}
+			}
+		grid -
+		place { throw [list TK UNSUPPORTED UNSUPPORTED_GEOMETRY_MANAGER] [list Only pack GM currently is supported] }
 	}
-	#set con "$d"
-	#concat
-	set com [string cat {dict for {key value} } "{$d}" { {set [string range $key 1 end] $value}} ]
-	
-	#'inject' the variables into the calling function.
-	uplevel 1 $com
-	return x
+	return $pathName
 }
-proc Util::range [list from to [list by 1]] {
-	set ranges 	[list]
-	set last	$from
-	while { [incr last $by] <= $to } {lappend ranges $last}
-	if {$ranges ne {}} {set ranges [linsert $ranges 0 $from]}
-	return $ranges
-}
-# a hack and a terrible name
-proc Util::len_range [list from to [list by 1]] {
-	return [Util::range $from [expr {$to - 1}] $by ]
-}
+Toolbar::newPayload .fToolbar.bButton1 -relief raised -text 123 -withSeparator 1 -Type button pack
+namespace eval NorthBar {}
 
 proc About::show args {
 	wm deicon 	.tlAbout
