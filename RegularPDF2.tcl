@@ -391,7 +391,7 @@ namespace eval Toolbar {
 	#set direction left
 	
 	# to keep track ; its count ; Indicies of Menu buttons in $children ; visiblility? 0/No => Menu Bar is Visible, 1/yes => Menu Buttons are visible ; pack LtR or RtL
-	variable children [dict create]  childrenCount 0  menuButtons [list]  areMenuButtonsVisible No packSide left
+	variable children [dict create]  childrenCount 0  menuButtons [list]  areMenuButtonsVisible {No} packSide {left} menuButtonChildren [dict create] menuButtonChildrenCount 0
 	
 
 }
@@ -883,34 +883,36 @@ proc NorthBar::new_dart [list n Args] {
 	return $contain
 	
 }
-proc NorthBar::create_menu_buttons args {
+proc Toolbar::createMenuButtons args {
 	# Create .toolbar.menu_button_x
 	
 	set mRootChildren [dict get $Menu::all .mRoot]
 	dict for {order i} $mRootChildren {
 		if {$order in [dict get $mRootChildren cascades]} {
 			# {#} will be replaced with name/path of the button
-			NorthBar::new_button {} -text [dict get $Menu::labels $i] -command "Menu::post # [dict get $Menu::cascades $i]" -relief flat -overrelief groove pack
-			lappend NorthBar::menu_button_children $NorthBar::children_count
+			dict set Toolbar::menuButtonChildren .fToolbar.bMB[incr Toolbar::menuButtonChildrenCount] [dict get $Menu::labels $i] 
+			Toolbar::newPayload .fToolbar.bMB$Toolbar::menuButtonChildrenCount -Type button  -text [dict get $Menu::labels $i] -command "Menu::post # [dict get $Menu::cascades $i]" -relief flat -overrelief groove pack
+			#lappend NorthBar::menu_button_children $NorthBar::children_count
 			} elseif {$order in [dict get $mRootChildren commands]} {
-			NorthBar::new_button {} -text [dict get $Menu::labels $i] -command [dict get $Menu::commands $i] -relief flat -overrelief groove pack
-			lappend NorthBar::menu_button_children $NorthBar::children_count
+			dict set Toolbar::menuButtonChildren .fToolbar.bMB[incr Toolbar::menuButtonChildrenCount] [dict get $Menu::labels $i] 
+			Toolbar::newPayload .fToolbar.bMB$Toolbar::menuButtonChildrenCount -Type button  -text [dict get $Menu::labels $i] -command [dict get $Menu::commands $i] -relief flat -overrelief groove pack
+			#lappend NorthBar::menu_button_children $NorthBar::children_count
 		}
 	}
 }
 
-proc NorthBar::create_menu_buttons_switch args {
+proc Toolbar::createSwitchMenusButton args {
 	#Assmes position (it's has been called after create_menu_buttons etc...)
 	
 	
 	# get full window path of the new button
-	lassign [NorthBar::new_button menu_switch -relief flat -overrelief groove -text "$Icon::Unicode::UpBoldArrow Bring Up Menu"  pack] b
+	lassign [Toolbar::newPayload .fToolbar.bMenuSwitch -relief flat -overrelief groove -text "$Icon::Unicode::UpBoldArrow Bring Up Menu"  pack] b
 	
 	#then send it, in command
-	$b config -command [list NorthBar::menu_buttons_switch $b]
+	$b config -command [list Toolbar::switchMenus $b]
 	
 }
-proc NorthBar::menu_buttons_switch w {
+proc Toolbar::switchMenus w {
 	#$w => full window path of the Switch Button
 	
 	#the switch button's  text
@@ -922,19 +924,17 @@ proc NorthBar::menu_buttons_switch w {
 	if {$str eq {Up}} {
 			#set the Menu Bar
 			{.} config -menu .mRoot
-			#Get all menu buttons
-			set all [ lmap e $NorthBar::menu_button_children { concat [dict get $NorthBar::children $e] } ]
+			
 			#remove them
-			pack forget {*}$all
+			pack forget {*}[dict keys $Toolbar::menuButtonChildren *]
 			#rename the button
 			$w config -text [lreplace [lreplace $text 2 2 Down] 0 0 $Icon::Unicode::DownBoldArrow]
 		} else {
 			#remove the menu bar
 			{.} config -menu {}
-			#Get all menu buttons
-			set all [ lmap e $NorthBar::menu_button_children { concat [dict get $NorthBar::children $e] } ]
+			
 			#pack them, before .toolbar.menu_switch
-			pack {*}$all -side $NorthBar::direction -before $w
+			pack {*}[dict keys $Toolbar::menuButtonChildren *] -side $Toolbar::packSide -before $w
 			#rename the button
 			$w config -text [lreplace [lreplace $text 2 2 Up] 0 0 $Icon::Unicode::UpBoldArrow]
 		}
@@ -951,14 +951,14 @@ proc main { } {
 	
 	
 	#create Menu Buttons/Blocks
-	#NorthBar::create_menu_buttons
+	Toolbar::createMenuButtons
 	
 	#create the Menu Buttons switch button
-	#NorthBar::create_menu_buttons_switch
+	Toolbar::createSwitchMenusButton
 	
 	#Test
 	#NorthBar::new_button {} -type dart -text {Save as PDF} -command {puts [list -> %x %y]} -options [list {Use the built-in File lister} {Use the OS' native File explorer}] -default 1 pack -pady 1
-	Toolbar::newPayload .fToolbar.bDart1 -Type DartButton::new -text {Save as PDF} -command {puts [list -> %x %y]} -Options [list {Use the built-in File lister} {Use the OS' native File explorer}] -DefaultIndex 1 pack -pady 1
+	Toolbar::newPayload .fToolbar.bDart1 -Type DartButton::new -text {Save as PDF} -command {puts [list -> %x %y]} -Options [list {Use the built-in File lister} {Use the OS' native File explorer}] -DefaultIndex 1 pack -pady 3 -padx 5
 	#enview a [label frame] and rest
 	Files::configure
 	
