@@ -100,9 +100,9 @@ proc Util::injectVariablesAndRemoveSwitchesFromAList [list listName args] {
 			set afterIndex [dict get $dictList $option]
 			set dictList [dict remove $dictList $option]
 		} trap {TCL LOOKUP DICT} {} {
-			set afterIndex {{}}
+			set afterIndex {}
 		}
-		uplevel 1 "set [string range $option 1 end] $afterIndex"
+		uplevel 1 "set [string range $option 1 end] {$afterIndex}"
 	}
 	#puts [list injectVariablesAndRemoveSwitchesFromAList $dictList $args ]
 	# remove
@@ -397,7 +397,7 @@ namespace eval Toolbar {
 }
 proc Toolbar::newPayload [list pathName args] {
 	# set the option argument of -Type and remove them from $args
-	Util::injectVariablesAndRemoveSwitchesFromAList args -Type -withSeparator ;#puts [list Vars => [info vars] Type -> $Type Args -> $args] ; if {$Type eq {}} {puts empty}
+	Util::injectVariablesAndRemoveSwitchesFromAList args -Type -WithSeparator ;#puts [list Vars => [info vars] Type -> $Type Args -> $args] ; if {$Type eq {}} {puts empty}
 	if {$Type eq {}} {set Type button}
 	
 	Util::ifStringFirstFoundReplace args # $pathName
@@ -422,7 +422,7 @@ proc Toolbar::newPayload [list pathName args] {
 		pack {
 			{*}[linsert $Geom 1 $pathName] -side $Toolbar::packSide
 			# if -with_separator is specified in $args, put a vertical ttk::separator in accordance with NorthBar::direction
-			if {$withSeparator ne {}} {
+			if {$WithSeparator == 1} {
 				pack [ttk::separator ${pathName}_separator -orient vertical] -after $pathName -side $Toolbar::packSide -fill y -expand 0 -padx 1
 				}
 			}
@@ -431,7 +431,54 @@ proc Toolbar::newPayload [list pathName args] {
 	}
 	return $pathName
 }
-Toolbar::newPayload .fToolbar.bButton1 -relief raised -text 123 -withSeparator 1 -Type button pack
+Toolbar::newPayload .fToolbar.bButton1 -relief raised -text 123 -WithSeparator 1 -Type button pack
+namespace eval DartButton {} {
+	# numbering according to Toolbar::childrenCount
+	variable children [dict create]
+}
+proc DartButton::new [list pathName  args] {
+	Util::injectVariablesAndRemoveSwitchesFromAList args -variable -Options -DefaultIndex
+	set childCount $Toolbar::childrenCount
+	puts [list DartButton::new>> $pathName $childCount $args >>]
+	#the container
+	set contain [frame $pathName -relief flat -borderwidth 1]
+	
+	#the button
+	set b1 [button ${contain}.b1 {*}$args -relief flat ]
+	#separator
+	set s [ttk::separator ${contain}.s -orient vertical]
+	#dart "option" button; to trigger a menu of options (not tk_optionMenu)
+	set b2 [button ${contain}.b2 -relief [$b1 cget -relief] -text "$Icon::Unicode::DownDart"]
+	#the menu
+	set m [menu ${contain}.m -tearoff 0]
+	
+	#by controlling -variable sets the default radiobutton
+	if {$variable eq {}} {
+		set variable DartButton::variable$childCount
+		# create it in the name space
+		variable variable$childCount {}
+	}
+	# add option; 0 => buit-in file lister . 1 => OS' native
+	foreach op $Options value [Util::len_range 0 [llength $Options]] { $m add radiobutton -label $op -value $value -variable $variable}
+	
+	# set default
+	set $variable $DefaultIndex
+	
+	#dict set NorthBar::dart_children $NorthBar::cildren_count [dict create]
+	dict set DartButton::children $childCount $contain
+	
+	pack $b1 $s $b2 -side $Toolbar::packSide
+	pack configure $s -fill y
+	
+	#config. Todo:Complete the implementation
+	$b2 config -command "Menu::post $b2 $m"
+	
+	#Emulating -overrelief
+	bind $contain <Enter> "$contain config -relief groove"
+	bind $contain <Leave> "$contain config -relief flat"
+	
+	return $contain
+}
 namespace eval NorthBar {}
 
 proc About::show args {
@@ -911,7 +958,7 @@ proc main { } {
 	
 	#Test
 	#NorthBar::new_button {} -type dart -text {Save as PDF} -command {puts [list -> %x %y]} -options [list {Use the built-in File lister} {Use the OS' native File explorer}] -default 1 pack -pady 1
-
+	Toolbar::newPayload .fToolbar.bDart1 -Type DartButton::new -text {Save as PDF} -command {puts [list -> %x %y]} -Options [list {Use the built-in File lister} {Use the OS' native File explorer}] -DefaultIndex 1 pack -pady 1
 	#enview a [label frame] and rest
 	Files::configure
 	
