@@ -8,6 +8,7 @@ package require Tk
 # .Prefix_name[.Prefix_name[...]]
 # Prefix	-> type of Window
 # b		=>	Button
+# e		=>	Entry
 # f		=>	Frame
 # l		=>	Label
 # lf	=>	Labelframe
@@ -15,6 +16,7 @@ package require Tk
 # pw 	=>	PanedWindow
 # sb	=>	Scrollbar
 # tl	=>	Toplevel
+# ttknb	=>	ttk::notebook
 # ttkSG =>	ttk::sizegrip
 # ttkSP	=>	ttk::Separator
 
@@ -56,6 +58,34 @@ namespace eval Icon {
 }
 namespace eval Util {
 	
+}
+namespace eval CustomSave {
+	variable name
+	toplevel 	.tlCustomSave
+	#wm withdraw .tlCustomSave
+	wm protocol .tlCustomSave WM_DELETE_WINDOW {wm withdraw .tlCustomSave}
+	wm title 	.tlCustomSave {Save a File}
+	frame		.tlCustomSave.fContain
+	ttk::notebook	.tlCustomSave.fContain.ttknbHouse
+	frame		.tlCustomSave.fContain.ttknbHouse.fHouse
+	label		.tlCustomSave.fContain.lL1	-text {Enter the File Name to be saved (without .pdf extension)}
+	entry		.tlCustomSave.fContain.ttknbHouse.fHouse.eName -textvariable CustomSave::name -relief groove
+	labelframe	.tlCustomSave.fContain.lbStatus		-text {Operation Status} -relief groove
+	label		.tlCustomSave.fContain.lbStatus.lL1	-text {Ready}
+	label		.tlCustomSave.fContain.lbStatus.lL2	-text {}
+	ttk::separator	.tlCustomSave.fContain.lbStatus.sDivider1 -orient horizontal
+	labelframe	.tlCustomSave.fContain.lbPath		-text {Effective Path} -relief groove
+	label		.tlCustomSave.fContain.lbPath.lL1	-text {}
+	button 		.tlCustomSave.fContain.bB1	-text Proceed
+	button 		.tlCustomSave.fContain.bB2	-text Cancel	-command {wm withdraw .tlCustomSave}
+	
+	.tlCustomSave.fContain.ttknbHouse add .tlCustomSave.fContain.ttknbHouse.fHouse -sticky nswe -text {Specify File Name}
+	
+	pack .tlCustomSave.fContain.lbPath.lL1 -expand 1 -fill both
+	pack .tlCustomSave.fContain.lL1 .tlCustomSave.fContain.ttknbHouse .tlCustomSave.fContain.lbPath .tlCustomSave.fContain.lbStatus -side top -pady 10 -padx 10 -fill x
+	pack .tlCustomSave.fContain.lbStatus.lL1 -expand 1 -fill both
+	pack .tlCustomSave.fContain.bB1 .tlCustomSave.fContain.bB2 -side left -expand 1 -fill none -pady 10 -padx 10
+	pack .tlCustomSave.fContain -expand 1 -fill both
 }
 # due to Tcl's [::tcl::mathfunc::rand]'s shortfallings
 proc Util::semiRandom [list [list subrange 1]] {
@@ -112,7 +142,7 @@ proc Util::injectVariablesAndRemoveSwitchesFromAList [list listName args] {
 }
 proc Util::ifStringFirstFoundReplace [list listName searchString replaceString] {
 	upvar 1 $listName targetList
-	if { [set Hashtag [string first {#} $targetList] ]!= {-1} } { set targetList [string replace $targetList $Hashtag $Hashtag $replaceString]  }
+	if { [set Hashtag [string first $searchString $targetList] ]!= {-1} } { set targetList [string replace $targetList $Hashtag $Hashtag $replaceString]  }
 }
 proc Util::splitOnWord [list listName Words] {
 	upvar 1 $listName targetList
@@ -264,7 +294,7 @@ namespace eval Files {
 	labelframe 	.pwPane.lfFiles 	-text {Items in current directory} -relief $Files::lfRelief -borderwidth $Files::frameBorderWidth
 	
 	# left listbox for Icons
-	listbox		.pwPane.lfFiles.lbL		-relief flat -highlightthickness 2 -highlightcolor blue  -background $Files::parentBg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center
+	listbox		.pwPane.lfFiles.lbL		-relief flat -highlightthickness 2 -highlightcolor blue  -background $Files::parentBg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center -width -1 -selectforeground {} -selectbackground $Files::parentBg
 	
 	# right hand-side listbox for listing files
 	listbox 	.pwPane.lfFiles.lbR 	-relief flat -highlightthickness 2 -highlightcolor blue  -background $Files::parentBg -cursor hand2 -activestyle none -selectmode browse -listvar Files::Rvar
@@ -662,8 +692,8 @@ proc Files::configure {args} {
 			# full path of doing <-
 			set Files::dir [file normalize [file join $Files::dir .. ] ]
 			puts [list up is $Files::dir]
-			# if C:/ D:/ or even /								list volumes					otherwise list the up/dir, glob demands an / on end
-			if { $Files::dir in [set volumes [file volumes]] } { Files::list_volumes $volumes } else { Files::list_ [string cat $Files::dir /] }
+			# if C:/ D:/ or even /													list volumes			otherwise list the up/dir, glob demands an / on end
+			if { $Files::dir in [set volumes [file volumes]] } { set Files::dir / ; Files::list_volumes $volumes } else { Files::list_ [string cat $Files::dir /] }
 			# glob tolerates an extra / on end
 			# puts [list to is $Files::dir]
 		} elseif {$index < $Files::dirLimit} { set Files::dir [file join $Files::dir $Label];  ;Files::list_ [string cat $Files::dir /] } else {
@@ -753,136 +783,8 @@ proc NorthBar::new_space_block args {
 	
 	#return $b
 }
-proc NorthBar::new_button [list name args] {
-	
-	# too complicated
-	# new button [list name type args]
-	# if $name == {}: .toolbar.$type_block_$count ; if -no_count_append => .toolbar.$type_block_
-	# eles:			  .toolbar.$type_block_$name ; if -no_count_append => Ignore
-	#
-	# instead -type Type is implemented
-	
-	#++children_count
-	incr NorthBar::children_count
-	
-		# if name is empty => .toolbar.button_block_(Count)
-		if {$name eq {}} { set n [string cat .fToolbar {.} button_block_  $NorthBar::children_count] }
-	
-		# if {#} exists in Button creation arguments:
-		if { [set Hashtag [string first {#} $args] ]!= {-1} } { set args [string replace $args $Hashtag $Hashtag $n]  }
-	
-	#if vertical ttk::separator is present should be put, after the button.							# if vertical is not -1, pop it from $args.
-	set vertical [lsearch -exact $args -with_separator] ;									if {$vertical != -1} { set args [lreplace $args $vertical $vertical] ; set vertical 1} else {set vertical 0}
-	
-	# search for -type
-	set type [lsearch -exact $args {-type}]
-	# if -type is present, 1) set tmp as the value After it in $args. 2) replace -type and the Value. 3) return just set $type.
-	# else set type to 0
-	set type [ if {$type == {-1}} {subst 0} else { set tmp [lindex $args $type+1] ; set args [lreplace $args $type $type+1] ; subst $tmp} ]
-	
-	#get name/ partial window path name from $args[0] if it doesn't exist already.			Then 'right shift' the arguments
-	if ![info exists n] { set n [string cat .fToolbar {.} $name ] } ;					#	set args [lrange $args 1 end]
-	
-	
-	# index of place/pack/grid word.														# the last of those (non-empty ones)
-	set index [lmap e [list place pack grid] {concat [lsearch -exact $args $e]}] ;			set index [Util::max $index]
 
-	
-	#split args as 1: [button creation arguments (0)- $index-1] 							2: [place/pack/grid INSERTED$name - end]
-	set Attr  [lrange $args 0 $index]	;													set Geometry [lrange $args $index end ]
-	
-	if {$index == -1} {
-		set Attr $Geometry
-		set Geometry [list]
-		
-	} else {
-		set Attr [lreplace $Attr end end]
-		set Geometry [linsert $Geometry 1 $n]
-	}
-	
-	
-	#Hackey way of doing it.
-	#create the button, by default
-	set b [expr { $type == {0} ? [button $n {*}$Attr ] : [NorthBar::new_$type $n $Attr] } ]
-	
-	#store the name/window path of the button as Value to Key $children_count
-	dict set NorthBar::children $NorthBar::children_count $b
-	
-	#pack/place/grid it
-	#{*}$Geometry
-	#To ensure conformity to NorthBar::direction.
-	switch [lindex $Geometry 0] {
-		pack { {*}$Geometry -side $NorthBar::direction
-				# if -with_separator is specified in $args, put a vertical ttk::separator in accordance with NorthBar::direction
-				if $vertical {
-					pack [ttk::separator [string cat $b _separator] -orient vertical] -after $b -side $NorthBar::direction -fill y -expand 0 -padx 1
-					}
-			}
-		grid -
-		place { throw [list TK UNSUPPORTED UNSUPPORTED_GEOMETRY_MANAGER] [list Only pack GM currently is supported] }
-	}
-	return $b
-}
-proc NorthBar::new_dart [list n Args] {
-	
-	#n 		=> full window path, pre-created
-	#Args 	=> Attr, a list from NorthBar::new_button
-	
-	#remove Switches
-		# search for -options (labels on the menu)
-		# -default (index of which label to be ticked/on)
-		# -text 	(text on button face)
-		set opsWanted 		[list -options -default]
-		set opsIndexes 		[lmap e $opsWanted {concat [lsearch -exact $Args $e]}]
-		# to find element in args that are not index of -option or after it
-		set opsIndexesNot	[Util::len_range 0  [llength $Args]]
-		set opsIndexesNot	[lmap e $opsIndexesNot {if {$e in $opsIndexes || ($e - 1) in $opsIndexes } {continue} else {concat $e} }]
-		#
-		#retrieve and remove
-		foreach index $opsIndexes one $opsWanted {
-			set [string range $one 1 end] [ if {$index == {-1}} {subst {}} else { set tmp [lindex $Args $index+1] ; ; subst $tmp} ]
-		}
-		
-		#abandoned
-		#Util::args $Args -options -default
-		#puts [list new dart is $options $default]
-		#
-		unset -nocomplain tmp
-		# to counteract $Args being =>[list {} {} {} {} {}]
-		set Args [lmap e $opsIndexesNot {lindex $Args $e}]
-	#the container
-	set contain [frame $n -relief flat -borderwidth 1]
-	
-	#the button
-	set b1 [button [string cat $contain . b1 ] {*}$Args -relief flat ]
-	#separator
-	set s [ttk::separator [string cat $contain . s ] -orient vertical]
-	#dart "option" button; to trigger a menu of options (not tk_optionMenu)
-	set b2 [button [string cat $contain . b2 ] -relief [$b1 cget -relief] -text "$Icon::Unicode::DownDart"]
-	#the menu
-	set m [menu [string cat $contain . m ] -tearoff 0]
-	
-	#by controlling -variable sets the default radiobutton
-	set NorthBar::testVar $default
-	# add option; 0 => buit-in file lister . 1 => OS' native
-	foreach op $options value [Util::len_range 0 [llength $options]] { $m add radiobutton -label $op -value $value -variable NorthBar::testVar}
-	
-	
-	
-	#dict set NorthBar::dart_children $NorthBar::cildren_count [dict create]
-	pack $b1 $s $b2 -side left
-	pack configure $s -fill y
-	
-	#config. Todo:Complete the implementation
-	$b2 config -command "Menu::post $b2 $m"
-	
-	#Emulating -overrelief
-	bind $contain <Enter> "$contain config -relief groove"
-	bind $contain <Leave> "$contain config -relief flat"
-	
-	return $contain
-	
-}
+
 proc Toolbar::createMenuButtons args {
 	# Create .toolbar.menu_button_x
 	
