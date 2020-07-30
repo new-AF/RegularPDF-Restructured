@@ -61,15 +61,20 @@ namespace eval Util {
 }
 namespace eval CustomSave {
 	variable name
+	variable extension
+	variable path
 	toplevel 	.tlCustomSave
 	#wm withdraw .tlCustomSave
 	wm protocol .tlCustomSave WM_DELETE_WINDOW {wm withdraw .tlCustomSave}
 	wm title 	.tlCustomSave {Save a File}
 	frame		.tlCustomSave.fContain
 	ttk::notebook	.tlCustomSave.fContain.ttknbHouse
-	frame		.tlCustomSave.fContain.ttknbHouse.fHouse
+	frame		.tlCustomSave.fContain.ttknbHouse.fHouse1
+	frame		.tlCustomSave.fContain.ttknbHouse.fHouse2
 	label		.tlCustomSave.fContain.lL1	-text {Enter the File Name to be saved (without .pdf extension)}
-	entry		.tlCustomSave.fContain.ttknbHouse.fHouse.eName -textvariable CustomSave::name -relief groove
+	entry		.tlCustomSave.fContain.ttknbHouse.fHouse1.eName -textvariable CustomSave::name -relief flat
+	entry		.tlCustomSave.fContain.ttknbHouse.fHouse1.eExtension -textvariable CustomSave::extension -relief flat -width -1
+	entry		.tlCustomSave.fContain.ttknbHouse.fHouse2.ePath -textvariable CustomSave::path -relief flat
 	labelframe	.tlCustomSave.fContain.lbStatus		-text {Operation Status} -relief groove
 	label		.tlCustomSave.fContain.lbStatus.lL1	-text {Ready}
 	label		.tlCustomSave.fContain.lbStatus.lL2	-text {}
@@ -79,9 +84,13 @@ namespace eval CustomSave {
 	button 		.tlCustomSave.fContain.bB1	-text Proceed
 	button 		.tlCustomSave.fContain.bB2	-text Cancel	-command {wm withdraw .tlCustomSave}
 	
-	.tlCustomSave.fContain.ttknbHouse add .tlCustomSave.fContain.ttknbHouse.fHouse -sticky nswe -text {Specify File Name}
-	
-	pack .tlCustomSave.fContain.lbPath.lL1 -expand 1 -fill both
+	.tlCustomSave.fContain.ttknbHouse.fHouse1.eExtension insert 0 .pdf
+	.tlCustomSave.fContain.ttknbHouse add .tlCustomSave.fContain.ttknbHouse.fHouse1 -sticky nswe -text {Specify File Name}
+	.tlCustomSave.fContain.ttknbHouse add .tlCustomSave.fContain.ttknbHouse.fHouse2 -sticky nswe -text {Specify File Path}
+	pack .tlCustomSave.fContain.ttknbHouse.fHouse1.eName .tlCustomSave.fContain.ttknbHouse.fHouse1.eExtension -side left 
+	pack configure .tlCustomSave.fContain.ttknbHouse.fHouse1.eName -expand 1 -fill both -padx [list 0 10]
+
+	pack .tlCustomSave.fContain.lbPath.lL1 .tlCustomSave.fContain.ttknbHouse.fHouse2.ePath -expand 1 -fill both
 	pack .tlCustomSave.fContain.lL1 .tlCustomSave.fContain.ttknbHouse .tlCustomSave.fContain.lbPath .tlCustomSave.fContain.lbStatus -side top -pady 10 -padx 10 -fill x
 	pack .tlCustomSave.fContain.lbStatus.lL1 -expand 1 -fill both
 	pack .tlCustomSave.fContain.bB1 .tlCustomSave.fContain.bB2 -side left -expand 1 -fill none -pady 10 -padx 10
