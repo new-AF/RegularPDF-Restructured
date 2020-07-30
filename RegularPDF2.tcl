@@ -59,42 +59,99 @@ namespace eval Icon {
 namespace eval Util {
 	
 }
+
 namespace eval CustomSave {
 	variable name
 	variable extension
 	variable path
+	variable activeIndex
+	variable activeContent
+	variable anyway no
+	variable topLabel [list {Enter the File Name to be saved (without .pdf extension)} {Enter the File Name as well its Path (relative or absolute)}]
 	toplevel 	.tlCustomSave
 	#wm withdraw .tlCustomSave
 	wm protocol .tlCustomSave WM_DELETE_WINDOW {wm withdraw .tlCustomSave}
 	wm title 	.tlCustomSave {Save a File}
-	frame		.tlCustomSave.fContain
-	ttk::notebook	.tlCustomSave.fContain.ttknbHouse
-	frame		.tlCustomSave.fContain.ttknbHouse.fHouse1
-	frame		.tlCustomSave.fContain.ttknbHouse.fHouse2
-	label		.tlCustomSave.fContain.lL1	-text {Enter the File Name to be saved (without .pdf extension)}
-	entry		.tlCustomSave.fContain.ttknbHouse.fHouse1.eName -textvariable CustomSave::name -relief flat
-	entry		.tlCustomSave.fContain.ttknbHouse.fHouse1.eExtension -textvariable CustomSave::extension -relief flat -width -1
-	entry		.tlCustomSave.fContain.ttknbHouse.fHouse2.ePath -textvariable CustomSave::path -relief flat
-	labelframe	.tlCustomSave.fContain.lbStatus		-text {Operation Status} -relief groove
-	label		.tlCustomSave.fContain.lbStatus.lL1	-text {Ready}
-	label		.tlCustomSave.fContain.lbStatus.lL2	-text {}
-	ttk::separator	.tlCustomSave.fContain.lbStatus.sDivider1 -orient horizontal
-	labelframe	.tlCustomSave.fContain.lbPath		-text {Effective Path} -relief groove
-	label		.tlCustomSave.fContain.lbPath.lL1	-text {}
-	button 		.tlCustomSave.fContain.bB1	-text Proceed
-	button 		.tlCustomSave.fContain.bB2	-text Cancel	-command {wm withdraw .tlCustomSave}
-	
-	.tlCustomSave.fContain.ttknbHouse.fHouse1.eExtension insert 0 .pdf
-	.tlCustomSave.fContain.ttknbHouse add .tlCustomSave.fContain.ttknbHouse.fHouse1 -sticky nswe -text {Specify File Name}
-	.tlCustomSave.fContain.ttknbHouse add .tlCustomSave.fContain.ttknbHouse.fHouse2 -sticky nswe -text {Specify File Path}
-	pack .tlCustomSave.fContain.ttknbHouse.fHouse1.eName .tlCustomSave.fContain.ttknbHouse.fHouse1.eExtension -side left 
-	pack configure .tlCustomSave.fContain.ttknbHouse.fHouse1.eName -expand 1 -fill both -padx [list 0 10]
+	frame		.tlCustomSave.fF
+	ttk::notebook	.tlCustomSave.fF.ttknbHouse
+	frame		.tlCustomSave.fF.ttknbHouse.fF1
+	frame		.tlCustomSave.fF.ttknbHouse.fF2
+	label		.tlCustomSave.fF.lL1 						-text	{}
+	entry		.tlCustomSave.fF.ttknbHouse.fF1.eName 		-textvariable CustomSave::name 		-relief flat
+	entry		.tlCustomSave.fF.ttknbHouse.fF1.eExtension 	-textvariable CustomSave::extension -relief flat -width -1
+	entry		.tlCustomSave.fF.ttknbHouse.fF2.ePath 		-textvariable CustomSave::path 		-relief flat
+	labelframe	.tlCustomSave.fF.lbStatus					-text {Operation Status} -relief groove
+	label		.tlCustomSave.fF.lbStatus.lL1				-text {Ready}
+	label		.tlCustomSave.fF.lbStatus.lL2				-text {}
+	ttk::separator	.tlCustomSave.fF.lbStatus.sDivider1 	-orient horizontal
+	labelframe	.tlCustomSave.fF.lbPath						-text {Effective Path} -relief groove
+	label		.tlCustomSave.fF.lbPath.lL1					-text {}
+	button 		.tlCustomSave.fF.bB1						-text Proceed
+	button 		.tlCustomSave.fF.bB2						-text Cancel	-command {wm withdraw .tlCustomSave}
+	scrollbar 	.tlCustomSave.fF.ttknbHouse.fF1.sbH 		-orient vertical -relief groove -command {.pwPane.lfFiles.lbR yview}
+	scrollbar 	.tlCustomSave.fF.ttknbHouse.fF1.sbH2 		-orient horizontal -relief groove -command {.pwPane.lfFiles.lbR xview}
+	.tlCustomSave.fF.ttknbHouse.fF1.eExtension insert 0 .pdf
+	.tlCustomSave.fF.ttknbHouse add .tlCustomSave.fF.ttknbHouse.fF1 -sticky nswe -text {Specify File Name}
+	.tlCustomSave.fF.ttknbHouse add .tlCustomSave.fF.ttknbHouse.fF2 -sticky nswe -text {Specify File Path}
+	pack .tlCustomSave.fF.ttknbHouse.fF1.eName .tlCustomSave.fF.ttknbHouse.fF1.eExtension -side left 
+	pack configure .tlCustomSave.fF.ttknbHouse.fF1.eName -expand 1 -fill both -padx [list 0 10]
 
-	pack .tlCustomSave.fContain.lbPath.lL1 .tlCustomSave.fContain.ttknbHouse.fHouse2.ePath -expand 1 -fill both
-	pack .tlCustomSave.fContain.lL1 .tlCustomSave.fContain.ttknbHouse .tlCustomSave.fContain.lbPath .tlCustomSave.fContain.lbStatus -side top -pady 10 -padx 10 -fill x
-	pack .tlCustomSave.fContain.lbStatus.lL1 -expand 1 -fill both
-	pack .tlCustomSave.fContain.bB1 .tlCustomSave.fContain.bB2 -side left -expand 1 -fill none -pady 10 -padx 10
-	pack .tlCustomSave.fContain -expand 1 -fill both
+	pack .tlCustomSave.fF.lbPath.lL1 .tlCustomSave.fF.ttknbHouse.fF2.ePath -expand 1 -fill both
+	pack .tlCustomSave.fF.lL1 .tlCustomSave.fF.ttknbHouse .tlCustomSave.fF.lbPath .tlCustomSave.fF.lbStatus -side top -pady 10 -padx 10 -fill x
+	pack .tlCustomSave.fF.lbStatus.lL1 -expand 1 -fill both
+	pack .tlCustomSave.fF.bB1 .tlCustomSave.fF.bB2 -side left -expand 1 -fill none -pady 10 -padx 10
+	pack .tlCustomSave.fF -expand 1 -fill both
+	
+	pack configure .tlCustomSave.fF.lL1 -expand 1 -fill none
+	bind .tlCustomSave.fF.ttknbHouse <<NotebookTabChanged>> { 
+		set CustomSave::activeIndex [%W index current] 
+		# triggers trace variables, from onset
+		append [lindex [list CustomSave::name CustomSave::path] $CustomSave::activeIndex] {}
+		.tlCustomSave.fF.lL1 config -text [lindex $CustomSave::topLabel $CustomSave::activeIndex] }
+	
+	.tlCustomSave.fF.bB1 config -command {
+		try {
+			if {$CustomSave::anyway eq {no} && [file exist $CustomSave::activeContent]} {
+				.tlCustomSave.fF.lbStatus.lL1 config -text {Above Entry Exists}
+				.tlCustomSave.fF.lbStatus.lL2 config -text {and it's a [lindex [list File. Directory. ] [file isdirectory $CustomSave::name]]}
+				.tlCustomSave.fF.bB1 		config 	-text [join [.tlCustomSave.fF.bB1 cget -text] Anyway]
+				set CustomSave::anyway yes
+			} else {
+				set CustomSave::anyway no
+				set ch [open $CustomSave::activeContent w]
+				puts $ch PDFCOntent 
+				.tlCustomSave.fF.lbStatus.lL1 config -text Success
+			}
+			
+			
+		} trap {} {msg setDict} {
+			.tlCustomSave.fF.lbStatus.lL1 config -text $msg
+			.tlCustomSave.fF.lbStatus.lL2 config -text [dict get $setDict -errorcode]
+			
+		}
+	}
+	
+}
+
+proc CustomSave::traceName [list before nameOfThisProc empty operation] {
+	if {$CustomSave::activeIndex != 0} {return}
+	set whatTo [expr {$CustomSave::name eq {}?{}:[string cat [file join $Files::dir $CustomSave::name] $CustomSave::extension]}]
+	.tlCustomSave.fF.lbPath.lL1 config -text $whatTo
+	set CustomSave::activeContent $CustomSave::name
+}
+proc CustomSave::tracePath [list before nameOfThisProc empty operation] {
+	if {$CustomSave::activeIndex != 1} {return}
+	set whatTo [expr {$CustomSave::path eq {}?{}:[file normalize  $CustomSave::path] }]
+	.tlCustomSave.fF.lbPath.lL1 config -text $whatTo
+	set CustomSave::activeContent $CustomSave::path
+	
+}
+
+proc CustomSave::configure {} {
+	trace add variable CustomSave::name write {CustomSave::traceName before}
+	trace add variable CustomSave::extension write {CustomSave::traceName before}
+	trace add variable CustomSave::path write {CustomSave::tracePath before}
+	
 }
 # due to Tcl's [::tcl::mathfunc::rand]'s shortfallings
 proc Util::semiRandom [list [list subrange 1]] {
@@ -883,10 +940,8 @@ proc main { } {
 		  -rootx [winfo rootx .pwPane] -rooty [winfo rooty .pwPane] \
 		  -vrootx [winfo vrootx .pwPane] -vrooty [winfo vrooty .pwPane]]
 	
-	# For Testing purposes only, of .pwPane
-	place [button .b -text TempButton -command [list puts [list Only a temporary Button] ]] -x 0 -y 100
 	
-	
+	CustomSave::configure
 }
 
 
