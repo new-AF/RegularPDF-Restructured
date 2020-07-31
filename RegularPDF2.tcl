@@ -70,7 +70,7 @@ namespace eval CustomSave {
 	variable topLabel [list {Enter the File Name to be saved (without .pdf extension)} {Enter the File Name as well its Path (relative or absolute)}]
 	variable buttonOrder 0
 	toplevel 	.tlCustomSave
-	#wm withdraw .tlCustomSave
+	wm withdraw .tlCustomSave
 	wm protocol .tlCustomSave WM_DELETE_WINDOW {wm withdraw .tlCustomSave}
 	wm title 	.tlCustomSave {Save a File}
 	frame		.tlCustomSave.fF
@@ -121,7 +121,7 @@ namespace eval CustomSave {
 	
 	.tlCustomSave.fF.bB1 config -command {
 		try {
-			if {$CustomSave::anyway eq {no} && [file exist $CustomSave::activeContent]} {
+			if {$CustomSave::anyway eq {no} && [file exists $CustomSave::activeContent]} {
 				.tlCustomSave.fF.lbStatus.lL1 config -text {Above Effective Path Already Exists}
 				.tlCustomSave.fF.lbStatus.lL2 config -text "and it's a [lindex [list File. Directory. ] [file isdirectory $CustomSave::name]]"
 				
@@ -135,6 +135,7 @@ namespace eval CustomSave {
 				set ch [open [.tlCustomSave.fF.lbPath.lL1 cget -text ] w]
 				puts $ch PDFCOntent 
 				.tlCustomSave.fF.lbStatus.lL1 config -text Success
+				.tlCustomSave.fF.lbStatus.lL2 config -text {}
 				set CustomSave::anyway no
 				# one last time
 				CustomSave::shuffleButtons Proceed
@@ -174,6 +175,9 @@ proc CustomSave::configure {} {
 	trace add variable CustomSave::extension write {CustomSave::traceName before}
 	trace add variable CustomSave::path write {CustomSave::tracePath before}
 	
+}
+proc CustomSave::show {} {
+	Util::showToplevel .tlCustomSave
 }
 # due to Tcl's [::tcl::mathfunc::rand]'s shortfallings
 proc Util::semiRandom [list [list subrange 1]] {
@@ -327,7 +331,12 @@ proc Util::range [list from to [list by 1]] {
 proc Util::len_range [list from to [list by 1]] {
 	return [Util::range $from [expr {$to - 1}] $by ]
 }
-
+proc Util::showToplevel [list whichToplevel] {
+	wm deicon 	$whichToplevel
+	wm geometry $whichToplevel [Util::get_center $whichToplevel]
+	#
+	#wm attributes .tlAbout -topmost 1
+}
 namespace eval About {
 	
 	# create a toplevel window ; make it invisible (iconify it) ;  'bind' the X button
@@ -348,6 +357,9 @@ namespace eval About {
 	#
 	pack .tlAbout.lL1 .tlAbout.lL2 .tlAbout.lL3 -pady 10 -padx 2cm
 	
+}
+proc About::show {} {
+	Util::showToplevel .tlAbout
 }
 namespace eval MainPane {
 	
@@ -575,6 +587,8 @@ proc DartButton::new [list pathName  args] {
 		set variable DartButton::variable$childCount
 		# create it in the name space
 		variable variable$childCount {}
+	} elseif ![info exists $variable] {
+		set $variable {}
 	}
 	# add option; 0 => buit-in file lister . 1 => OS' native
 	foreach op $Options value [Util::len_range 0 [llength $Options]] { $m add radiobutton -label $op -value $value -variable $variable}
@@ -599,12 +613,7 @@ proc DartButton::new [list pathName  args] {
 }
 namespace eval NorthBar {}
 
-proc About::show args {
-	wm deicon 	.tlAbout
-	wm geometry .tlAbout [Util::get_center .tlAbout]
-	#
-	#wm attributes .tlAbout -topmost 1
-}
+
 proc Files::configure {args} {
 	
 	
@@ -929,7 +938,44 @@ proc Toolbar::switchMenus w {
 			$w config -text [lreplace [lreplace $text 2 2 Up] 0 0 $Icon::Unicode::UpBoldArrow]
 		}
 }
+namespace eval Tabs {
+	
+	labelframe	.pwPane.lfTabs	-text {Current Tabs} -borderwidth 5	-relief groove
+	button		.pwPane.lfTabs.bB0	-text {Create New Document}		-command Tabs::newDocument
+	.pwPane add .pwPane.lfTabs		-stretch always
+	grid		.pwPane.lfTabs.bB0	-row 0	-column	0	-columnspan 2 -sticky nsew
+	
+	variable 	documentRowBegin [dict create]		documentRowEnd		[dict create]		documentPageCount [dict create ]		documentCount 0		pages [dict create]		pagesCount 0 	newRow 1
+}
 
+proc Tabs::newDocument {} {
+	
+	incr Tabs::documentCount
+	dict set documentRowBegin $Tabs::documentCount	$Tabs::newRow
+	dict set documentRowEnd $Tabs::documentCount $Tabs::newRow
+	button		.pwPane.lfTabs.bD$Tabs::documentCount	-text "Blank Document $Tabs::documentCount"
+	button		.pwPane.lfTabs.bDM$Tabs::documentCount	-text $Icon::Unicode::3Dots
+	
+	grid 		.pwPane.lfTabs.bD$Tabs::documentCount 	-row $Tabs::newRow	-column 0	-sticky we
+	grid 		.pwPane.lfTabs.bDM$Tabs::documentCount 	-row $Tabs::newRow	-column 1	-sticky e
+	
+	incr Tabs::newRow
+	Tabs::newPage $Tabs::newRow
+}
+proc Tabs::newPage row {
+	
+	incr 		Tabs::pagesCount
+	dict incr Tabs::documentRowEnd $Tabs::documentCount
+	if ![dict exists $Tabs::documentPageCount $Tabs::documentCount] {dict set Tabs::documentPageCount $Tabs::documentCount 1} else {dict incr Tabs::documentPageCount $Tabs::documentCount}
+	# page No.
+	set no [dict get $Tabs::documentPageCount $Tabs::documentCount]
+	#
+	button		.pwPane.lfTabs.bP$Tabs::documentCount/$no					-text "Page $no"
+	button		.pwPane.lfTabs.bPM$Tabs::documentCount/$no					-text $Icon::Unicode::3Dots
+	grid		.pwPane.lfTabs.bP$Tabs::documentCount/$no					-row $row	-column 0 	-sticky we
+	grid		.pwPane.lfTabs.bPM$Tabs::documentCount/$no					-row $row	-column 1	-sticky	e
+	incr Tabs::newRow
+}
 proc main { } {
 	
 	
@@ -948,7 +994,12 @@ proc main { } {
 	
 	#Test
 	#NorthBar::new_button {} -type dart -text {Save as PDF} -command {puts [list -> %x %y]} -options [list {Use the built-in File lister} {Use the OS' native File explorer}] -default 1 pack -pady 1
-	Toolbar::newPayload .fToolbar.bDart1 -Type DartButton::new -text {Save as PDF} -command {puts [list -> %x %y]} -Options [list {Use the built-in File lister} {Use the OS' native File explorer}] -DefaultIndex 1 pack -pady 3 -padx 5
+	#fDart1 bc it's a frame
+	Toolbar::newPayload .fToolbar.fDart1 -Type DartButton::new -text {Save as PDF} -Options [list {Use the built-in File lister} {Use the OS' native File explorer}] -DefaultIndex 1 -variable ::DartButton::varSaveMenu pack -pady 3 -padx 5
+	.fToolbar.fDart1.b1 configure -command {
+		[lindex [list CustomSave::show tk_getSaveFile] $DartButton::varSaveMenu]
+	}
+	
 	#enview a [label frame] and rest
 	Files::configure
 	
