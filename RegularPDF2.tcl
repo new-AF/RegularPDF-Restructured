@@ -954,10 +954,10 @@ proc Tabs::newDocument {} {
 	dict set documentRowBegin $Tabs::documentCount	$Tabs::newRow
 	dict set documentRowEnd $Tabs::documentCount $Tabs::newRow
 	button		.pwPane.lfTabs.bD$Tabs::documentCount	-text "Blank Document $Tabs::documentCount"
-	button		.pwPane.lfTabs.bDM$Tabs::documentCount	-text $Icon::Unicode::3Dots
+	button		.pwPane.lfTabs.bDM$Tabs::documentCount	-text $Icon::Unicode::3Dots		-command "Menu::post .pwPane.lfTabs.bDM$Tabs::documentCount .mDocument"	
 	
-	grid 		.pwPane.lfTabs.bD$Tabs::documentCount 	-row $Tabs::newRow	-column 0	-sticky we
-	grid 		.pwPane.lfTabs.bDM$Tabs::documentCount 	-row $Tabs::newRow	-column 1	-sticky e
+	grid 		.pwPane.lfTabs.bD$Tabs::documentCount 	-row $Tabs::newRow	-column 0	-sticky we	-pady [list 0.5c 0]
+	grid 		.pwPane.lfTabs.bDM$Tabs::documentCount 	-row $Tabs::newRow	-column 1	-sticky es
 	
 	incr Tabs::newRow
 	Tabs::newPage $Tabs::newRow
@@ -971,8 +971,8 @@ proc Tabs::newPage row {
 	set no [dict get $Tabs::documentPageCount $Tabs::documentCount]
 	#
 	button		.pwPane.lfTabs.bP$Tabs::documentCount/$no					-text "Page $no"
-	button		.pwPane.lfTabs.bPM$Tabs::documentCount/$no					-text $Icon::Unicode::3Dots
-	grid		.pwPane.lfTabs.bP$Tabs::documentCount/$no					-row $row	-column 0 	-sticky we
+	button		.pwPane.lfTabs.bPM$Tabs::documentCount/$no					-text $Icon::Unicode::3Dots		-command "Menu::post .pwPane.lfTabs.bPM$Tabs::documentCount/$no .mPage"
+	grid		.pwPane.lfTabs.bP$Tabs::documentCount/$no					-row $row	-column 0 	-sticky we	-padx [list 0.5c 0]
 	grid		.pwPane.lfTabs.bPM$Tabs::documentCount/$no					-row $row	-column 1	-sticky	e
 	incr Tabs::newRow
 }
