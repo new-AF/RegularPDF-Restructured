@@ -68,37 +68,47 @@ namespace eval CustomSave {
 	variable activeContent
 	variable anyway no
 	variable topLabel [list {Enter the File Name to be saved (without .pdf extension)} {Enter the File Name as well its Path (relative or absolute)}]
+	variable buttonOrder 0
 	toplevel 	.tlCustomSave
 	#wm withdraw .tlCustomSave
 	wm protocol .tlCustomSave WM_DELETE_WINDOW {wm withdraw .tlCustomSave}
 	wm title 	.tlCustomSave {Save a File}
 	frame		.tlCustomSave.fF
 	ttk::notebook	.tlCustomSave.fF.ttknbHouse
-	frame		.tlCustomSave.fF.ttknbHouse.fF1
+	#frame		.tlCustomSave.fF.ttknbHouse.fF1
+	panedwindow	.tlCustomSave.fF.ttknbHouse.pwF				-orient horizontal -borderwidth 0 -sashrelief raised -handlepad 0 -sashpad 0.1cm
 	frame		.tlCustomSave.fF.ttknbHouse.fF2
 	label		.tlCustomSave.fF.lL1 						-text	{}
-	entry		.tlCustomSave.fF.ttknbHouse.fF1.eName 		-textvariable CustomSave::name 		-relief flat
-	entry		.tlCustomSave.fF.ttknbHouse.fF1.eExtension 	-textvariable CustomSave::extension -relief flat -width -1
+	entry		.tlCustomSave.fF.ttknbHouse.pwF.eName 		-textvariable CustomSave::name 		-relief flat
+	entry		.tlCustomSave.fF.ttknbHouse.pwF.eExtension 	-textvariable CustomSave::extension -relief flat -width -1
 	entry		.tlCustomSave.fF.ttknbHouse.fF2.ePath 		-textvariable CustomSave::path 		-relief flat
+
 	labelframe	.tlCustomSave.fF.lbStatus					-text {Operation Status} -relief groove
 	label		.tlCustomSave.fF.lbStatus.lL1				-text {Ready}
 	label		.tlCustomSave.fF.lbStatus.lL2				-text {}
+	
 	ttk::separator	.tlCustomSave.fF.lbStatus.sDivider1 	-orient horizontal
 	labelframe	.tlCustomSave.fF.lbPath						-text {Effective Path} -relief groove
 	label		.tlCustomSave.fF.lbPath.lL1					-text {}
 	button 		.tlCustomSave.fF.bB1						-text Proceed
-	button 		.tlCustomSave.fF.bB2						-text Cancel	-command {wm withdraw .tlCustomSave}
-	scrollbar 	.tlCustomSave.fF.ttknbHouse.fF1.sbH 		-orient vertical -relief groove -command {.pwPane.lfFiles.lbR yview}
-	scrollbar 	.tlCustomSave.fF.ttknbHouse.fF1.sbH2 		-orient horizontal -relief groove -command {.pwPane.lfFiles.lbR xview}
-	.tlCustomSave.fF.ttknbHouse.fF1.eExtension insert 0 .pdf
-	.tlCustomSave.fF.ttknbHouse add .tlCustomSave.fF.ttknbHouse.fF1 -sticky nswe -text {Specify File Name}
+	button 		.tlCustomSave.fF.bB2						-text Cancel	-command {
+		wm withdraw .tlCustomSave
+		set CustomSave::anyway no
+	}
+	#scrollbar 	.tlCustomSave.fF.ttknbHouse.fF1.sbH 		-orient vertical -relief groove -command {.pwPane.lfFiles.lbR yview}
+	#scrollbar 	.tlCustomSave.fF.ttknbHouse.fF1.sbH2 		-orient horizontal -relief groove -command {.pwPane.lfFiles.lbR xview}
+	.tlCustomSave.fF.ttknbHouse.pwF.eExtension insert 0 .pdf
+	#.tlCustomSave.fF.ttknbHouse add .tlCustomSave.fF.ttknbHouse.fF1 -sticky nswe -text {Specify File Name}
+	.tlCustomSave.fF.ttknbHouse add .tlCustomSave.fF.ttknbHouse.pwF -sticky nswe -text {Specify File Name}
 	.tlCustomSave.fF.ttknbHouse add .tlCustomSave.fF.ttknbHouse.fF2 -sticky nswe -text {Specify File Path}
-	pack .tlCustomSave.fF.ttknbHouse.fF1.eName .tlCustomSave.fF.ttknbHouse.fF1.eExtension -side left 
-	pack configure .tlCustomSave.fF.ttknbHouse.fF1.eName -expand 1 -fill both -padx [list 0 10]
-
+	#pack .tlCustomSave.fF.ttknbHouse.fF1.eName .tlCustomSave.fF.ttknbHouse.fF1.sH1 .tlCustomSave.fF.ttknbHouse.fF1.eExtension -side left 
+	.tlCustomSave.fF.ttknbHouse.pwF	add .tlCustomSave.fF.ttknbHouse.pwF.eName -sticky nswe -stretch always
+	.tlCustomSave.fF.ttknbHouse.pwF	add .tlCustomSave.fF.ttknbHouse.pwF.eExtension
+	#pack configure .tlCustomSave.fF.ttknbHouse.fF1.eName -expand 1 -fill both
+	#pack configure .tlCustomSave.fF.ttknbHouse.fF1.sH1 -fill y -ipadx 10;#-padx 0.1cm
 	pack .tlCustomSave.fF.lbPath.lL1 .tlCustomSave.fF.ttknbHouse.fF2.ePath -expand 1 -fill both
 	pack .tlCustomSave.fF.lL1 .tlCustomSave.fF.ttknbHouse .tlCustomSave.fF.lbPath .tlCustomSave.fF.lbStatus -side top -pady 10 -padx 10 -fill x
-	pack .tlCustomSave.fF.lbStatus.lL1 -expand 1 -fill both
+	pack .tlCustomSave.fF.lbStatus.lL1 .tlCustomSave.fF.lbStatus.lL2 -side top -expand 1 -fill both
 	pack .tlCustomSave.fF.bB1 .tlCustomSave.fF.bB2 -side left -expand 1 -fill none -pady 10 -padx 10
 	pack .tlCustomSave.fF -expand 1 -fill both
 	
@@ -112,19 +122,27 @@ namespace eval CustomSave {
 	.tlCustomSave.fF.bB1 config -command {
 		try {
 			if {$CustomSave::anyway eq {no} && [file exist $CustomSave::activeContent]} {
-				.tlCustomSave.fF.lbStatus.lL1 config -text {Above Entry Exists}
-				.tlCustomSave.fF.lbStatus.lL2 config -text {and it's a [lindex [list File. Directory. ] [file isdirectory $CustomSave::name]]}
-				.tlCustomSave.fF.bB1 		config 	-text [join [.tlCustomSave.fF.bB1 cget -text] Anyway]
+				.tlCustomSave.fF.lbStatus.lL1 config -text {Above Effective Path Already Exists}
+				.tlCustomSave.fF.lbStatus.lL2 config -text "and it's a [lindex [list File. Directory. ] [file isdirectory $CustomSave::name]]"
+				
+				after 50 {
+					CustomSave::shuffleButtons Overwrite
+				}
+				
 				set CustomSave::anyway yes
 			} else {
-				set CustomSave::anyway no
-				set ch [open $CustomSave::activeContent w]
+				
+				set ch [open [.tlCustomSave.fF.lbPath.lL1 cget -text ] w]
 				puts $ch PDFCOntent 
 				.tlCustomSave.fF.lbStatus.lL1 config -text Success
+				set CustomSave::anyway no
+				# one last time
+				CustomSave::shuffleButtons Proceed
 			}
 			
 			
 		} trap {} {msg setDict} {
+			CustomSave::shuffleButtons {Try Again}
 			.tlCustomSave.fF.lbStatus.lL1 config -text $msg
 			.tlCustomSave.fF.lbStatus.lL2 config -text [dict get $setDict -errorcode]
 			
@@ -132,7 +150,11 @@ namespace eval CustomSave {
 	}
 	
 }
-
+proc CustomSave::shuffleButtons [list [list buttonText Proceed]] {
+	.tlCustomSave.fF.bB1 config -text $buttonText
+	pack configure .tlCustomSave.fF.bB1 [lindex [list -after -befor] $CustomSave::buttonOrder] .tlCustomSave.fF.bB2
+	set CustomSave::buttonOrder [expr {!$CustomSave::buttonOrder}]
+}
 proc CustomSave::traceName [list before nameOfThisProc empty operation] {
 	if {$CustomSave::activeIndex != 0} {return}
 	set whatTo [expr {$CustomSave::name eq {}?{}:[string cat [file join $Files::dir $CustomSave::name] $CustomSave::extension]}]
