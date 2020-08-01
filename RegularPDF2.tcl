@@ -976,14 +976,14 @@ proc Tabs::newPage row {
 	grid		.pwPane.lfTabs.bPM$Tabs::documentCount/$no					-row $row	-column 1	-sticky	e
 	incr Tabs::newRow
 }
-namespace eval DCanvas {
+namespace eval Draw {
 	labelframe	.pwPane.lfCanvas
 	.pwPane	add .pwPane.lfCanvas -sticky nswe -stretch always
 	frame		.pwPane.lfCanvas.fTools -borderwidth 2 -relief groove
 	pack .pwPane.lfCanvas.fTools -side left -fill y
 	pack [label 		.pwPane.lfCanvas.fTools.lL -text Tools]
 	pack [ttk::separator	.pwPane.lfCanvas.fTools.sLine -orient horizontal] -fill x -pady [list 0 0.5c]
-	pack [button		.pwPane.lfCanvas.fTools.bB1 -text {Helper Lines}]
+	pack [button		.pwPane.lfCanvas.fTools.bB1 -text {Helper Lines} -command Draw::hLines]
 	canvas		.pwPane.lfCanvas.cC
 	scrollbar	.pwPane.lfCanvas.sbV -orient vertical -command {.pwPane.lfCanvas.cC yview}
 	scrollbar	.pwPane.lfCanvas.sbH -orient horizontal -command {.pwPane.lfCanvas.cC xview}
@@ -992,9 +992,31 @@ namespace eval DCanvas {
 	pack .pwPane.lfCanvas.cC -side left -fill both
 	.pwPane.lfCanvas.cC configure -xscrollcommand {.pwPane.lfCanvas.sbH set} -yscrollcommand {.pwPane.lfCanvas.sbV set}
 	bind .pwPane.lfCanvas.cC <Configure> {%W configure -scrollregion [%W bbox all]}
+	
+	
 	# new page
 	.pwPane.lfCanvas.cC 	create rectangle [list 11 11 300 500] -fill {} -outline black
-	
+	#variable tTest		.pwPane.lfCanvas.cC create text 8 8 -text 123
+	#puts ==[.pwPane.lfCanvas.cC itemcget [] -font]==
+	bind .pwPane.lfCanvas.cC <Map> {
+		variable ::Draw::cX 	[.pwPane.lfCanvas.cC canvasx 0] ::Draw::cY [.pwPane.lfCanvas.cC canvasy 0]
+		variable ::Draw::tTest 	[.pwPane.lfCanvas.cC create text $Draw::cX $Draw::cY -text test -fill {}]
+		variable ::Draw::f 		[.pwPane.lfCanvas.cC itemcget $Draw::tTest -font]
+		variable ::Draw::fHeight [dict get [font metrics $::Draw::f] -linespace]
+		lassign 				[.pwPane.lfCanvas.cC coords {all} ] {} {} ::Draw::cW ::Draw::cH
+		Draw::hLines
+		bind .pwPane.lfCanvas.cC <Map> {}
+	}
+}
+proc Draw::hLines {} {
+	set howMany [expr {int(floor($Draw::cH / $Draw::fHeight))}]
+	set count 0
+	# 1 line less
+	set start [expr {int($Draw::fHeight + $Draw::cY)}]
+	while {[incr count] < $howMany} {
+		.pwPane.lfCanvas.cC create line $Draw::cX $start $Draw::cW $start -dash .
+		incr start $Draw::fHeight
+	}
 }
 proc main { } {
 	
