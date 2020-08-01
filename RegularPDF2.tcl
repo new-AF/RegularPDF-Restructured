@@ -943,7 +943,7 @@ namespace eval Tabs {
 	labelframe	.pwPane.lfTabs	-text {Current Tabs} -borderwidth 5	-relief groove
 	button		.pwPane.lfTabs.bB0	-text {Create New Document}		-command Tabs::newDocument
 	.pwPane add .pwPane.lfTabs		-stretch always
-	grid		.pwPane.lfTabs.bB0	-row 0	-column	0	-columnspan 2 -sticky nsew
+	grid		.pwPane.lfTabs.bB0	-row 0	-column	0	-columnspan 2 -sticky nswe
 	
 	variable 	documentRowBegin [dict create]		documentRowEnd		[dict create]		documentPageCount [dict create ]		documentCount 0		pages [dict create]		pagesCount 0 	newRow 1
 }
@@ -975,6 +975,26 @@ proc Tabs::newPage row {
 	grid		.pwPane.lfTabs.bP$Tabs::documentCount/$no					-row $row	-column 0 	-sticky we	-padx [list 0.5c 0]
 	grid		.pwPane.lfTabs.bPM$Tabs::documentCount/$no					-row $row	-column 1	-sticky	e
 	incr Tabs::newRow
+}
+namespace eval DCanvas {
+	labelframe	.pwPane.lfCanvas
+	.pwPane	add .pwPane.lfCanvas -sticky nswe -stretch always
+	frame		.pwPane.lfCanvas.fTools -borderwidth 2 -relief groove
+	pack .pwPane.lfCanvas.fTools -side left -fill y
+	pack [label 		.pwPane.lfCanvas.fTools.lL -text Tools]
+	pack [ttk::separator	.pwPane.lfCanvas.fTools.sLine -orient horizontal] -fill x -pady [list 0 0.5c]
+	pack [button		.pwPane.lfCanvas.fTools.bB1 -text {Helper Lines}]
+	canvas		.pwPane.lfCanvas.cC
+	scrollbar	.pwPane.lfCanvas.sbV -orient vertical -command {.pwPane.lfCanvas.cC yview}
+	scrollbar	.pwPane.lfCanvas.sbH -orient horizontal -command {.pwPane.lfCanvas.cC xview}
+	pack .pwPane.lfCanvas.sbV -side right -fill y
+	pack .pwPane.lfCanvas.sbH -side bottom -fill x
+	pack .pwPane.lfCanvas.cC -side left -fill both
+	.pwPane.lfCanvas.cC configure -xscrollcommand {.pwPane.lfCanvas.sbH set} -yscrollcommand {.pwPane.lfCanvas.sbV set}
+	bind .pwPane.lfCanvas.cC <Configure> {%W configure -scrollregion [%W bbox all]}
+	# new page
+	.pwPane.lfCanvas.cC 	create rectangle [list 11 11 300 500] -fill {} -outline black
+	
 }
 proc main { } {
 	
@@ -1015,6 +1035,10 @@ proc main { } {
 	
 	
 	CustomSave::configure
+	
+	# order of panes
+	.pwPane paneconfigure  .pwPane.lfCanvas -after  .pwPane.lfFiles
+	.pwPane paneconfigure .pwPane.lfTabs -after .pwPane.lfCanvas
 }
 
 
