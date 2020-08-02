@@ -983,13 +983,14 @@ namespace eval Draw {
 	pack .pwPane.lfCanvas.fTools -side left -fill y
 	pack [label 		.pwPane.lfCanvas.fTools.lL -text Tools]
 	pack [ttk::separator	.pwPane.lfCanvas.fTools.sLine -orient horizontal] -fill x -pady [list 0 0.5c]
-	pack [button		.pwPane.lfCanvas.fTools.bB1 -text {Helper Lines} -command Draw::hLines]
+	pack [button		.pwPane.lfCanvas.fTools.bB1 -text {Helper Lines} -command HLines::new]
 	canvas		.pwPane.lfCanvas.cC
 	scrollbar	.pwPane.lfCanvas.sbV -orient vertical -command {.pwPane.lfCanvas.cC yview}
 	scrollbar	.pwPane.lfCanvas.sbH -orient horizontal -command {.pwPane.lfCanvas.cC xview}
 	pack .pwPane.lfCanvas.sbV -side right -fill y
 	pack .pwPane.lfCanvas.sbH -side bottom -fill x
 	pack .pwPane.lfCanvas.cC -side left -fill both
+	
 	.pwPane.lfCanvas.cC configure -xscrollcommand {.pwPane.lfCanvas.sbH set} -yscrollcommand {.pwPane.lfCanvas.sbV set}
 	bind .pwPane.lfCanvas.cC <Configure> {%W configure -scrollregion [%W bbox all]}
 	
@@ -1004,19 +1005,60 @@ namespace eval Draw {
 		variable ::Draw::f 		[.pwPane.lfCanvas.cC itemcget $Draw::tTest -font]
 		variable ::Draw::fHeight [dict get [font metrics $::Draw::f] -linespace]
 		lassign 				[.pwPane.lfCanvas.cC coords {all} ] {} {} ::Draw::cW ::Draw::cH
-		Draw::hLines
+		.pwPane.lfCanvas.fTools.bB1 invoke
 		bind .pwPane.lfCanvas.cC <Map> {}
 	}
 }
-proc Draw::hLines {} {
-	set howMany [expr {int(floor($Draw::cH / $Draw::fHeight))}]
+# Draw::Properties
+namespace eval Properties {
+	pack [frame		.pwPane.lfCanvas.fF -borderwidth 2 -relief groove] -side right -fill y -after .pwPane.lfCanvas.sbV
+	grid [label		.pwPane.lfCanvas.fF.lTitle -text Properties] 					-row 0 -column 0 -columnspan 2 -sticky we -pady [list 0 0.25c]
+	grid [ttk::separator		.pwPane.lfCanvas.fF.ttkspLine -orient horizontal] 	-row 1 -column 0 -columnspan 2 -sticky we
+	grid [label		.pwPane.lfCanvas.fF.lName -text {Object Name}] 					-row 2 -column 0 -sticky w
+	grid [label		.pwPane.lfCanvas.fF.lNameDetail -text {}] 						-row 2 -column 1 -sticky e
+	
+}
+namespace eval Sequence {
+	frame	.pwPane.lfCanvas.fSequence 	-borderwidth 2 -relief groove
+	pack .pwPane.lfCanvas.fSequence -side right -fill y -after .pwPane.lfCanvas.sbV
+	pack [frame 	.pwPane.lfCanvas.fSequence.fBanner] -fill x
+	pack [frame 	.pwPane.lfCanvas.fSequence.fRest] -fill both
+	grid [label	.pwPane.lfCanvas.fSequence.fBanner.lLTitle -text {Objects Order}] 					-row 0 -column 0 -columnspan 3 -sticky we
+	grid [ttk::separator		.pwPane.lfCanvas.fSequence.fBanner.ttspLine -orient horizontal]		-row 1 -column 0 -columnspan 3 -sticky we -pady [list 0 0.25c]
+	# order -> order in object class' (objects dict) ; ;
+	variable objects [dict create] types [dict create] count 0
+}
+proc Sequence::new [list realId type] {
+	dict set Sequence::objects $Sequence::count $realId
+	dict set Sequence::objects $realId $type
+	incr Sequence::count
+	grid	[label .pwPane.lfCanvas.fSequence.fRest.lCount$Sequence::count -text $Sequence::count] -row $Sequence::count -column 0
+	grid	[label .pwPane.lfCanvas.fSequence.fRest.lType$Sequence::count -text [set ${type}::abbreaviate]]  -row $Sequence::count -column 1
+	grid	[label .pwPane.lfCanvas.fSequence.fRest.lRealId$Sequence::count -text "$type Object #$realId"] -row $Sequence::count -column 2
+	#bind .pwPane.lfCanvas.fSequence.fRest.lRealId$Sequence::count <Button> 
+}
+namespace eval HLines {} {
+	# objId -> [list id1 id2] ; count ; object's abbreviated name
+	variable objects [dict create] count 0 abbreaviate {HL} name {HLines}
+}
+proc HLines::new [list [list y {}]] {
+	set height [expr {$y eq {} ? $Draw::cH : ($Draw::cH - $y)}]
+	set howMany [expr {int(floor($height / $Draw::fHeight))}]
 	set count 0
+	set id $HLines::count
+	set objects [list]
 	# 1 line less
 	set start [expr {int($Draw::fHeight + $Draw::cY)}]
 	while {[incr count] < $howMany} {
-		.pwPane.lfCanvas.cC create line $Draw::cX $start $Draw::cW $start -dash .
+		lappend objects [.pwPane.lfCanvas.cC create line $Draw::cX $start $Draw::cW $start -dash .]
 		incr start $Draw::fHeight
 	}
+	#dict set HLines::objects $id [lrange $objects 0 end]
+	dict set HLines::objects $id $objects
+	Sequence::new $id {HLines}
+}
+namespace eval Mobility {
+
 }
 proc main { } {
 	
