@@ -23,7 +23,7 @@ package require Tk
 namespace eval RootWindow {
 	
 	variable width 700 	height 400 	screenW [winfo vrootwidth .] 	screenH [winfo vrootheight .]
-	variable x [expr {$RootWindow::screenW / 2 - $RootWindow::width /2}] 	y [expr {$RootWindow::screenH / 2 - $RootWindow::height /2}]
+	variable x [expr {$RootWindow::screenW / 2 - $RootWindow::width /2}] 	y [expr {$RootWindow::screenH / 2 - $RootWindow::height /2}] os [lindex [array get tcl_platform os] 1]
 	
 	# center the Root window
 	wm title 		. RegularPDF
@@ -1027,25 +1027,28 @@ namespace eval Sequence {
 	grid [ttk::separator		.pwPane.lfCanvas.fSequence.fBanner.ttspLine -orient horizontal]		-row 1 -column 0 -columnspan 3 -sticky we -pady [list 0 0.25c]
 	# order -> order in object class' (objects dict) ; ;
 	variable objects [dict create] types [dict create] count 0
+	#
+	
 }
-proc Sequence::new [list realId type] {
+proc Sequence::append [list realId type] {
 	dict set Sequence::objects $Sequence::count $realId
 	dict set Sequence::objects $realId $type
 	incr Sequence::count
-	grid	[label .pwPane.lfCanvas.fSequence.fRest.lCount$Sequence::count -text $Sequence::count] -row $Sequence::count -column 0
-	grid	[label .pwPane.lfCanvas.fSequence.fRest.lType$Sequence::count -text [set ${type}::abbreaviate]]  -row $Sequence::count -column 1
-	grid	[label .pwPane.lfCanvas.fSequence.fRest.lRealId$Sequence::count -text "$type Object #$realId"] -row $Sequence::count -column 2
-	#bind .pwPane.lfCanvas.fSequence.fRest.lRealId$Sequence::count <Button> 
+	grid	[label .pwPane.lfCanvas.fSequence.fRest.lCount$Sequence::count -text $Sequence::count] 									-row $Sequence::count -column 0
+	grid	[ttk::separator .pwPane.lfCanvas.fSequence.fRest.ttkspLine${Sequence::count}1	-orient vertical ] -sticky ns 			-row $Sequence::count -column 1
+	grid	[label .pwPane.lfCanvas.fSequence.fRest.lType$Sequence::count -text [set ${type}::abbreaviatedName]]  					-row $Sequence::count -column 2
+	grid	[ttk::separator .pwPane.lfCanvas.fSequence.fRest.ttkspLine${Sequence::count}3	-orient vertical ] -sticky ns			-row $Sequence::count -column 3
+	grid	[label .pwPane.lfCanvas.fSequence.fRest.lRealId$Sequence::count -text "$type Object #$realId"] 							-row $Sequence::count -column 4
+	
 }
-namespace eval HLines {} {
+namespace eval HLines {
 	# objId -> [list id1 id2] ; count ; object's abbreviated name
-	variable objects [dict create] count 0 abbreaviate {HL} name {HLines}
+	variable objects [dict create] count 0 abbreaviatedName {HL} name {HLines}
 }
 proc HLines::new [list [list y {}]] {
 	set height [expr {$y eq {} ? $Draw::cH : ($Draw::cH - $y)}]
 	set howMany [expr {int(floor($height / $Draw::fHeight))}]
 	set count 0
-	set id $HLines::count
 	set objects [list]
 	# 1 line less
 	set start [expr {int($Draw::fHeight + $Draw::cY)}]
@@ -1053,9 +1056,9 @@ proc HLines::new [list [list y {}]] {
 		lappend objects [.pwPane.lfCanvas.cC create line $Draw::cX $start $Draw::cW $start -dash .]
 		incr start $Draw::fHeight
 	}
-	#dict set HLines::objects $id [lrange $objects 0 end]
-	dict set HLines::objects $id $objects
-	Sequence::new $id {HLines}
+	dict set HLines::objects $HLines::count $objects
+	Sequence::append $HLines::count {HLines}
+	incr HLines::count
 }
 namespace eval Mobility {
 
@@ -1064,7 +1067,7 @@ proc main { } {
 	
 	
 	
-	set os [lindex [array get tcl_platform os] 1]
+	
 	
 	#create and Enview (cause it to be visible) Top strip/Toolbar
 	#NorthBar::create
