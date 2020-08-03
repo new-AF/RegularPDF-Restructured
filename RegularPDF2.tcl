@@ -1016,18 +1016,35 @@ namespace eval Properties {
 	# Title & Separator
 	pack [label		.pwPane.lfCanvas.fF.lBanner -text Properties] 						-side top -fill x -pady [list 0 0.25c]
 	pack [ttk::separator		.pwPane.lfCanvas.fF.ttkspLine -orient horizontal] 		-side top -fill x
-	# A New Frame for Object's Info
+	# A New Frame for Object's Info; Name and Type -> universal
 	pack [frame 			.pwPane.lfCanvas.fF.fInfo]									-side top -fill x
-	grid [label		.pwPane.lfCanvas.fF.fInfo.lLabelName -text {Object Name}] 			-row 0 -column 0 -sticky w
+	grid [label		.pwPane.lfCanvas.fF.fInfo.lLabelName -text {Object's Name}] 		-row 0 -column 0 -sticky w
 	grid [label		.pwPane.lfCanvas.fF.fInfo.lName -text {}] 							-row 0 -column 1 -sticky e
-	grid [label		.pwPane.lfCanvas.fF.fInfo.lLabelType -text {Object Type}] 			-row 1 -column 0 -sticky w
+	grid [label		.pwPane.lfCanvas.fF.fInfo.lLabelType -text {Object's Type}] 		-row 1 -column 0 -sticky w
 	grid [label		.pwPane.lfCanvas.fF.fInfo.lType -text {}] 							-row 1 -column 1 -sticky e
-	# Other Properties
-	grid [label		.pwPane.lfCanvas.fF.fInfo.lLabelHeight -text {Object's Height}] 		-row 2 -column 0 -sticky w
-	grid [label		.pwPane.lfCanvas.fF.fInfo.lHieght  -text {}] 							-row 2 -column 1 -sticky e
-	grid [label		.pwPane.lfCanvas.fF.fInfo.lLabelWidth -text {Object's Width}] 			-row 3 -column 0 -sticky w
-	grid [label		.pwPane.lfCanvas.fF.fInfo.lWidth  -text {}] 							-row 3 -column 1 -sticky e
+	# Other Properties. hidden.
+	label		.pwPane.lfCanvas.fF.fInfo.lLabelHeight -text {Object's Height}
+	label		.pwPane.lfCanvas.fF.fInfo.lHieght  -text {}
+	label		.pwPane.lfCanvas.fF.fInfo.lLabelWidth -text {Object's Width}
+	label		.pwPane.lfCanvas.fF.fInfo.lWidth  -text {}
 	
+}
+proc Properties::map [list realId namespaceName] {
+	.pwPane.lfCanvas.fF.fInfo.lName config -text $realId
+	.pwPane.lfCanvas.fF.fInfo.lType config -text $namespaceName
+	upvar 1 "${namespaceName}::supported" supported
+	set all [lrange [winfo children .pwPane.lfCanvas.fF.fInfo ] 2 end]
+	grid forget {*}$all
+	set count 2
+	dict for {Key Value} $supported {
+		if ![winfo exists .pwPane.lfCanvas.fF.fInfo.lLabel$Key] {
+			label .pwPane.lfCanvas.fF.fInfo.lLabel$Key -text "Object's $Key"
+			label .pwPane.lfCanvas.fF.fInfo.l$Key
+		}
+		grid .pwPane.lfCanvas.fF.fInfo.l$Key -row $count -column 1 -sticky e
+		grid .pwPane.lfCanvas.fF.fInfo.lLabel$Key -row $count -column 0 -sticky w
+		incr count
+	}
 }
 namespace eval Sequence {
 	frame	.pwPane.lfCanvas.fSequence 	-borderwidth 2 -relief groove
@@ -1041,9 +1058,9 @@ namespace eval Sequence {
 	#
 	
 }
-proc Sequence::append [list realId type] {
+proc Sequence::add [list realId namespaceName] {
 	dict set Sequence::objects $Sequence::count $realId
-	dict set Sequence::objects $realId $type
+	dict set Sequence::types $realId $namespaceName
 	incr Sequence::count
 	set Ls [list \
 			.pwPane.lfCanvas.fSequence.fRest.lCount$Sequence::count \
@@ -1051,11 +1068,11 @@ proc Sequence::append [list realId type] {
 			.pwPane.lfCanvas.fSequence.fRest.lRealId$Sequence::count ]
 	grid	[label [lindex $Ls 0] -text $Sequence::count] 									-row $Sequence::count -column 0
 	grid	[ttk::separator .pwPane.lfCanvas.fSequence.fRest.ttkspLine${Sequence::count}1	-orient vertical ] -sticky ns 			-row $Sequence::count -column 1
-	grid	[label [lindex $Ls 1] -text [set ${type}::abbreaviatedName]]  					-row $Sequence::count -column 2
+	grid	[label [lindex $Ls 1] -text [set ${namespaceName}::abbreaviatedName]]  					-row $Sequence::count -column 2
 	grid	[ttk::separator .pwPane.lfCanvas.fSequence.fRest.ttkspLine${Sequence::count}3	-orient vertical ] -sticky ns			-row $Sequence::count -column 3
-	grid	[label [lindex $Ls 2] -text "$type Object #$realId"] 							-row $Sequence::count -column 4
+	grid	[label [lindex $Ls 2] -text "$namespaceName Object #$realId"] 							-row $Sequence::count -column 4
 	
-	set command [join [lmap i $Ls {concat "$i config -state active"}] {; }]
+	set command [join [list {*}[lmap i $Ls {concat "$i config -state active"}] "Properties::map $realId $namespaceName"] {; }]
 	foreach e $Ls {
 			$e config -activebackground [.mRoot.mHelp cget -activebackground]
 			$e config -activeforeground [.mRoot.mHelp cget -activeforeground]
@@ -1063,8 +1080,8 @@ proc Sequence::append [list realId type] {
 	}
 }
 namespace eval HLines {
-	# objId -> [list id1 id2] ; count ; object's abbreviated name ; ; List of supported Properties
-	variable objects [dict create] count 0 abbreaviatedName {HL} name {HLines} Supported [list width height]
+	# objId -> [list id1 id2] ; count ; object's abbreviated name ; ; List of supported Properties besides Name (realId) and Type (Type)
+	variable objects [dict create] count 0 abbreaviatedName {HL}  supported [list Width Height X Y]
 }
 proc HLines::new [list [list y {}]] {
 	set height [expr {$y eq {} ? $Draw::cH : ($Draw::cH - $y)}]
@@ -1078,7 +1095,7 @@ proc HLines::new [list [list y {}]] {
 		incr start $Draw::fHeight
 	}
 	dict set HLines::objects $HLines::count $objects
-	Sequence::append $HLines::count {HLines}
+	Sequence::add $HLines::count HLines
 	incr HLines::count
 }
 namespace eval Mobility {
