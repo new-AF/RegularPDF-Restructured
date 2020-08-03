@@ -1005,6 +1005,7 @@ namespace eval Draw {
 		variable ::Draw::f 		[.pwPane.lfCanvas.cC itemcget $Draw::tTest -font]
 		variable ::Draw::fHeight [dict get [font metrics $::Draw::f] -linespace]
 		lassign 				[.pwPane.lfCanvas.cC coords {all} ] {} {} ::Draw::cW ::Draw::cH
+		variable ::Draw::cW [::tcl::mathfunc::int $Draw::cW] ::Draw::cH [::tcl::mathfunc::int $Draw::cH]
 		.pwPane.lfCanvas.fTools.bB1 invoke
 		bind .pwPane.lfCanvas.cC <Map> {}
 	}
@@ -1022,11 +1023,8 @@ namespace eval Properties {
 	grid [label		.pwPane.lfCanvas.fF.fInfo.lName -text {}] 							-row 0 -column 1 -sticky e
 	grid [label		.pwPane.lfCanvas.fF.fInfo.lLabelType -text {Object's Type}] 		-row 1 -column 0 -sticky w
 	grid [label		.pwPane.lfCanvas.fF.fInfo.lType -text {}] 							-row 1 -column 1 -sticky e
-	# Other Properties. hidden.
-	label		.pwPane.lfCanvas.fF.fInfo.lLabelHeight -text {Object's Height}
-	label		.pwPane.lfCanvas.fF.fInfo.lHieght  -text {}
-	label		.pwPane.lfCanvas.fF.fInfo.lLabelWidth -text {Object's Width}
-	label		.pwPane.lfCanvas.fF.fInfo.lWidth  -text {}
+	# Other Properties. to be added later.
+	
 	
 }
 proc Properties::map [list realId namespaceName] {
@@ -1036,15 +1034,20 @@ proc Properties::map [list realId namespaceName] {
 	set all [lrange [winfo children .pwPane.lfCanvas.fF.fInfo ] 2 end]
 	grid forget {*}$all
 	set count 2
-	dict for {Key Value} $supported {
-		if ![winfo exists .pwPane.lfCanvas.fF.fInfo.lLabel$Key] {
-			label .pwPane.lfCanvas.fF.fInfo.lLabel$Key -text "Object's $Key"
-			label .pwPane.lfCanvas.fF.fInfo.l$Key
+	puts [list supported -> $supported]
+	foreach e $supported {
+		puts [list e -> $e]
+		if ![winfo exists .pwPane.lfCanvas.fF.fInfo.lLabel$e] {
+			puts NotFound
+			label .pwPane.lfCanvas.fF.fInfo.lLabel$e -text "Object's $e"
+			label .pwPane.lfCanvas.fF.fInfo.l$e -text {}
 		}
-		grid .pwPane.lfCanvas.fF.fInfo.l$Key -row $count -column 1 -sticky e
-		grid .pwPane.lfCanvas.fF.fInfo.lLabel$Key -row $count -column 0 -sticky w
+		.pwPane.lfCanvas.fF.fInfo.l$e config -text [${namespaceName}::$e $realId]
+		grid .pwPane.lfCanvas.fF.fInfo.l$e  		-row $count -column 1 -sticky e
+		grid .pwPane.lfCanvas.fF.fInfo.lLabel$e 	-row $count -column 0 -sticky w
 		incr count
 	}
+	
 }
 namespace eval Sequence {
 	frame	.pwPane.lfCanvas.fSequence 	-borderwidth 2 -relief groove
@@ -1080,24 +1083,44 @@ proc Sequence::add [list realId namespaceName] {
 	}
 }
 namespace eval HLines {
-	# objId -> [list id1 id2] ; count ; object's abbreviated name ; ; List of supported Properties besides Name (realId) and Type (Type)
-	variable objects [dict create] count 0 abbreaviatedName {HL}  supported [list Width Height X Y]
+	# objId -> [list id1 id2] ; count ; object's abbreviated name ; ; List of supported Properties besides Name (realId) and Type (namespaceName)
+	variable objects [dict create] count 0 abbreaviatedName {HL}  supported [list Width Height X Y] Width [dict create] Height [dict create] X [dict create] Y [dict create]
 }
-proc HLines::new [list [list y {}]] {
+proc HLines::new [list [list x {}] [list y {}]] {
+	set x [expr { $x eq {} ? $Draw::cX : $x}]
 	set height [expr {$y eq {} ? $Draw::cH : ($Draw::cH - $y)}]
+	set y [expr { $y eq {} ? $Draw::cY : $y}]
+	
 	set howMany [expr {int(floor($height / $Draw::fHeight))}]
 	set count 0
 	set objects [list]
 	# 1 line less
 	set start [expr {int($Draw::fHeight + $Draw::cY)}]
 	while {[incr count] < $howMany} {
-		lappend objects [.pwPane.lfCanvas.cC create line $Draw::cX $start $Draw::cW $start -dash .]
+		lappend objects [.pwPane.lfCanvas.cC create line $x $start $Draw::cW $start -dash .]
 		incr start $Draw::fHeight
 	}
-	dict set HLines::objects $HLines::count $objects
+	dict set HLines::objects	$HLines::count $objects
+	dict set HLines::Width 		$HLines::count [expr {int($Draw::cW - $x)}]
+	dict set HLines::Height 	$HLines::count $height
+	dict set HLines::X 			$HLines::count $x
+	dict set HLines::Y 			$HLines::count $y
 	Sequence::add $HLines::count HLines
 	incr HLines::count
 }
+proc HLines::Width id {
+	return [dict get $HLines::Width $id]
+}
+proc HLines::Height id {
+	return [dict get $HLines::Height $id]
+}
+proc HLines::X id {
+	return [dict get $HLines::X $id]
+}
+proc HLines::Y id {
+	return [dict get $HLines::Y $id]
+}
+
 namespace eval Mobility {
 
 }
