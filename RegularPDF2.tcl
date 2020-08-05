@@ -22,24 +22,40 @@ package require Tk
 
 namespace eval RootWindow {
 	
-	variable width 700 	height 400 	screenW [winfo vrootwidth .] 	screenH [winfo vrootheight .]
-	variable x [expr {$RootWindow::screenW / 2 - $RootWindow::width /2}] 	y [expr {$RootWindow::screenH / 2 - $RootWindow::height /2}] os [lindex [array get tcl_platform os] 1]
+	variable wPath {.} \
+	width 700 	height 400 	screenW [winfo vrootwidth .] 	screenH [winfo vrootheight .]
+	variable x [expr {$screenW / 2 - $width /2}] 	y [expr {$screenH / 2 - $height /2}] os [lindex [array get tcl_platform os] 1]
 	
 	# center the Root window
 	wm title 		. RegularPDF
-	wm geometry 	. ${RootWindow::width}x${RootWindow::height}+${RootWindow::x}+${RootWindow::y}
+	wm geometry 	. ${width}x${height}+${x}+${y}
 	
 	# always on top
 	wm attributes 	. -topmost 1
 	
 	# the resize grip
 	ttk::sizegrip	.ttksgResize
-	pack .ttksgResize -side top -fill x
+	pack .ttksgResize -side bottom -fill x
+}
+
+namespace eval MainPane {
+	
+	variable background coral \
+	wPath .pwPane
+	
+	#
+	panedwindow $wPath -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -background $background
+	pack $wPath -expand 1 -fill both -side bottom
+
+}
+namespace eval SecondFrame {
+	variable wPath $MainPane::wPath.fSecond
+	frame $SecondFrame::wPath
 }
 namespace eval Icon {
 	namespace eval Unicode {
 		variable Dot		"\ud83d\udf84"
-		variable 3Dots		[string repeat $Icon::Unicode::Dot 3] \
+		variable 3Dots		[string repeat $Dot 3] \
 		QuasiFilter			"\u29d6" \
 		UpDart 				"\u2b9d" \
 		DownDart 			"\u2b9f" \
@@ -53,7 +69,10 @@ namespace eval Icon {
 		Back 				"\u2190" \
 		Reload 				"\u21bb" \
 		Folders				"\ud83d\uddc2" \
-		Copyright			"\u00a9"
+		Copyright			"\u00a9" \
+		DoubleHeadedArrow	"\u2194" \
+		NewWindow			"\ud83d\uddd7" \
+		HorizontalLines		"\u25a4"
 	}
 }
 namespace eval Util {
@@ -66,64 +85,66 @@ namespace eval CustomSave {
 	variable path
 	variable activeIndex
 	variable activeContent
-	variable anyway no
-	variable topLabel [list {Enter the File Name to be saved (without .pdf extension)} {Enter the File Name as well its Path (relative or absolute)}]
-	variable buttonOrder 0
-	toplevel 	.tlCustomSave
-	wm withdraw .tlCustomSave
-	wm protocol .tlCustomSave WM_DELETE_WINDOW {wm withdraw .tlCustomSave}
-	wm title 	.tlCustomSave {Save a File}
-	frame		.tlCustomSave.fF
-	ttk::notebook	.tlCustomSave.fF.ttknbHouse
-	#frame		.tlCustomSave.fF.ttknbHouse.fF1
-	panedwindow	.tlCustomSave.fF.ttknbHouse.pwF				-orient horizontal -borderwidth 0 -sashrelief raised -handlepad 0 -sashpad 0.1cm
-	frame		.tlCustomSave.fF.ttknbHouse.fF2
-	label		.tlCustomSave.fF.lL1 						-text	{}
-	entry		.tlCustomSave.fF.ttknbHouse.pwF.eName 		-textvariable CustomSave::name 		-relief flat
-	entry		.tlCustomSave.fF.ttknbHouse.pwF.eExtension 	-textvariable CustomSave::extension -relief flat -width -1
-	entry		.tlCustomSave.fF.ttknbHouse.fF2.ePath 		-textvariable CustomSave::path 		-relief flat
-
-	labelframe	.tlCustomSave.fF.lbStatus					-text {Operation Status} -relief groove
-	label		.tlCustomSave.fF.lbStatus.lL1				-text {Ready}
-	label		.tlCustomSave.fF.lbStatus.lL2				-text {}
+	variable anyway {no} \
+	topLabel [list {Enter the File Name to be saved (without .pdf extension)} {Enter the File Name as well its Path (relative or absolute)}] \
+	buttonOrder {0} \
+	wPath .tlCustomSave
 	
-	ttk::separator	.tlCustomSave.fF.lbStatus.sDivider1 	-orient horizontal
-	labelframe	.tlCustomSave.fF.lbPath						-text {Effective Path} -relief groove
-	label		.tlCustomSave.fF.lbPath.lL1					-text {}
-	button 		.tlCustomSave.fF.bB1						-text Proceed
-	button 		.tlCustomSave.fF.bB2						-text Cancel	-command {
-		wm withdraw .tlCustomSave
+	toplevel 			$wPath
+	wm withdraw 		$wPath
+	wm protocol 		$wPath WM_DELETE_WINDOW {wm withdraw $CustomSave::wPath}
+	wm title 			$wPath {Save a File}
+	frame				$wPath.fF
+	ttk::notebook		$wPath.fF.ttknbHouse
+	#frame				$wPath.fF.ttknbHouse.fF1
+	panedwindow			$wPath.fF.ttknbHouse.pwF			-orient horizontal -borderwidth 0 -sashrelief raised -handlepad 0 -sashpad 0.1cm
+	frame				$wPath.fF.ttknbHouse.fF2
+	label				$wPath.fF.lL1 						-text	{}
+	entry				$wPath.fF.ttknbHouse.pwF.eName 		-textvariable CustomSave::name 		-relief flat
+	entry				$wPath.fF.ttknbHouse.pwF.eExtension -textvariable CustomSave::extension -relief flat -width -1
+	entry				$wPath.fF.ttknbHouse.fF2.ePath 		-textvariable CustomSave::path 		-relief flat
+
+	labelframe			$wPath.fF.lbStatus					-text {Operation Status} -relief groove
+	label				$wPath.fF.lbStatus.lL1				-text {Ready}
+	label				$wPath.fF.lbStatus.lL2				-text {}
+	
+	ttk::separator		$wPath.fF.lbStatus.sDivider1 		-orient horizontal
+	labelframe			$wPath.fF.lbPath					-text {Effective Path} -relief groove
+	label				$wPath.fF.lbPath.lL1				-text {}
+	button 				$wPath.fF.bB1						-text Proceed
+	button 				$wPath.fF.bB2						-text Cancel	-command {
+		wm withdraw $wPath
 		set CustomSave::anyway no
 	}
-	#scrollbar 	.tlCustomSave.fF.ttknbHouse.fF1.sbH 		-orient vertical -relief groove -command {.pwPane.lfFiles.lbR yview}
-	#scrollbar 	.tlCustomSave.fF.ttknbHouse.fF1.sbH2 		-orient horizontal -relief groove -command {.pwPane.lfFiles.lbR xview}
-	.tlCustomSave.fF.ttknbHouse.pwF.eExtension insert 0 .pdf
-	#.tlCustomSave.fF.ttknbHouse add .tlCustomSave.fF.ttknbHouse.fF1 -sticky nswe -text {Specify File Name}
-	.tlCustomSave.fF.ttknbHouse add .tlCustomSave.fF.ttknbHouse.pwF -sticky nswe -text {Specify File Name}
-	.tlCustomSave.fF.ttknbHouse add .tlCustomSave.fF.ttknbHouse.fF2 -sticky nswe -text {Specify File Path}
-	#pack .tlCustomSave.fF.ttknbHouse.fF1.eName .tlCustomSave.fF.ttknbHouse.fF1.sH1 .tlCustomSave.fF.ttknbHouse.fF1.eExtension -side left 
-	.tlCustomSave.fF.ttknbHouse.pwF	add .tlCustomSave.fF.ttknbHouse.pwF.eName -sticky nswe -stretch always
-	.tlCustomSave.fF.ttknbHouse.pwF	add .tlCustomSave.fF.ttknbHouse.pwF.eExtension
-	#pack configure .tlCustomSave.fF.ttknbHouse.fF1.eName -expand 1 -fill both
-	#pack configure .tlCustomSave.fF.ttknbHouse.fF1.sH1 -fill y -ipadx 10;#-padx 0.1cm
-	pack .tlCustomSave.fF.lbPath.lL1 .tlCustomSave.fF.ttknbHouse.fF2.ePath -expand 1 -fill both
-	pack .tlCustomSave.fF.lL1 .tlCustomSave.fF.ttknbHouse .tlCustomSave.fF.lbPath .tlCustomSave.fF.lbStatus -side top -pady 10 -padx 10 -fill x
-	pack .tlCustomSave.fF.lbStatus.lL1 .tlCustomSave.fF.lbStatus.lL2 -side top -expand 1 -fill both
-	pack .tlCustomSave.fF.bB1 .tlCustomSave.fF.bB2 -side left -expand 1 -fill none -pady 10 -padx 10
-	pack .tlCustomSave.fF -expand 1 -fill both
+	#scrollbar 	$wPath.fF.ttknbHouse.fF1.sbH 				-orient vertical -relief groove -command {$Files::wPath.lbR yview}
+	#scrollbar 	$wPath.fF.ttknbHouse.fF1.sbH2 				-orient horizontal -relief groove -command {$Files::wPath.lbR xview}
+	$wPath.fF.ttknbHouse.pwF.eExtension insert 				0 .pdf
+	#$wPath.fF.ttknbHouse add 								$wPath.fF.ttknbHouse.fF1 -sticky nswe -text {Specify File Name}
+	$wPath.fF.ttknbHouse add 								$wPath.fF.ttknbHouse.pwF -sticky nswe -text {Specify File Name}
+	$wPath.fF.ttknbHouse add 								$wPath.fF.ttknbHouse.fF2 -sticky nswe -text {Specify File Path}
+	#pack 													$wPath.fF.ttknbHouse.fF1.eName $wPath.fF.ttknbHouse.fF1.sH1 $wPath.fF.ttknbHouse.fF1.eExtension -side left 
+	$wPath.fF.ttknbHouse.pwF add 							$wPath.fF.ttknbHouse.pwF.eName -sticky nswe -stretch always
+	$wPath.fF.ttknbHouse.pwF add 							$wPath.fF.ttknbHouse.pwF.eExtension
+	#pack configure 										$wPath.fF.ttknbHouse.fF1.eName -expand 1 -fill both
+	#pack configure 										$wPath.fF.ttknbHouse.fF1.sH1 -fill y -ipadx 10;#-padx 0.1cm
+	pack 													$wPath.fF.lbPath.lL1 $wPath.fF.ttknbHouse.fF2.ePath -expand 1 -fill both
+	pack 													$wPath.fF.lL1 $wPath.fF.ttknbHouse $wPath.fF.lbPath $wPath.fF.lbStatus -side top -pady 10 -padx 10 -fill x
+	pack 													$wPath.fF.lbStatus.lL1 $wPath.fF.lbStatus.lL2 -side top -expand 1 -fill both
+	pack 													$wPath.fF.bB1 $wPath.fF.bB2 -side left -expand 1 -fill none -pady 10 -padx 10
+	pack 													$wPath.fF -expand 1 -fill both
 	
-	pack configure .tlCustomSave.fF.lL1 -expand 1 -fill none
-	bind .tlCustomSave.fF.ttknbHouse <<NotebookTabChanged>> { 
+	pack configure 											$wPath.fF.lL1 -expand 1 -fill none
+	bind $wPath.fF.ttknbHouse <<NotebookTabChanged>> { 
 		set CustomSave::activeIndex [%W index current] 
 		# triggers trace variables, from onset
 		append [lindex [list CustomSave::name CustomSave::path] $CustomSave::activeIndex] {}
-		.tlCustomSave.fF.lL1 config -text [lindex $CustomSave::topLabel $CustomSave::activeIndex] }
+		$CustomSave::wPath.fF.lL1 config -text [lindex $CustomSave::topLabel $CustomSave::activeIndex] }
 	
-	.tlCustomSave.fF.bB1 config -command {
+	$wPath.fF.bB1 config -command {
 		try {
 			if {$CustomSave::anyway eq {no} && [file exists $CustomSave::activeContent]} {
-				.tlCustomSave.fF.lbStatus.lL1 config -text {Above Effective Path Already Exists}
-				.tlCustomSave.fF.lbStatus.lL2 config -text "and it's a [lindex [list File. Directory. ] [file isdirectory $CustomSave::name]]"
+				$CustomSavew::wPath.fF.lbStatus.lL1 config -text {Above Effective Path Already Exists}
+				$CustomSave::wPath.fF.lbStatus.lL2 config -text "and it's a [lindex [list File. Directory. ] [file isdirectory $CustomSave::name]]"
 				
 				after 50 {
 					CustomSave::shuffleButtons Overwrite
@@ -132,10 +153,10 @@ namespace eval CustomSave {
 				set CustomSave::anyway yes
 			} else {
 				
-				set ch [open [.tlCustomSave.fF.lbPath.lL1 cget -text ] w]
+				set ch [open [$CustomSave::wPath.fF.lbPath.lL1 cget -text ] w]
 				puts $ch PDFCOntent 
-				.tlCustomSave.fF.lbStatus.lL1 config -text Success
-				.tlCustomSave.fF.lbStatus.lL2 config -text {}
+				$CustomSave::wPath.fF.lbStatus.lL1 config -text Success
+				$CustomSave::wPath.fF.lbStatus.lL2 config -text {}
 				set CustomSave::anyway no
 				# one last time
 				CustomSave::shuffleButtons Proceed
@@ -144,28 +165,28 @@ namespace eval CustomSave {
 			
 		} trap {} {msg setDict} {
 			CustomSave::shuffleButtons {Try Again}
-			.tlCustomSave.fF.lbStatus.lL1 config -text $msg
-			.tlCustomSave.fF.lbStatus.lL2 config -text [dict get $setDict -errorcode]
+			$CustomSave::wPath.fF.lbStatus.lL1 config -text $msg
+			$CustomSave::wPath.fF.lbStatus.lL2 config -text [dict get $setDict -errorcode]
 			
 		}
 	}
 	
 }
 proc CustomSave::shuffleButtons [list [list buttonText Proceed]] {
-	.tlCustomSave.fF.bB1 config -text $buttonText
-	pack configure .tlCustomSave.fF.bB1 [lindex [list -after -befor] $CustomSave::buttonOrder] .tlCustomSave.fF.bB2
+	$CustomSave::wPath.fF.bB1 config -text $buttonText
+	pack configure $CustomSave::wPath.fF.bB1 [lindex [list -after -befor] $CustomSave::buttonOrder] $CustomSave::wPath.fF.bB2
 	set CustomSave::buttonOrder [expr {!$CustomSave::buttonOrder}]
 }
 proc CustomSave::traceName [list before nameOfThisProc empty operation] {
 	if {$CustomSave::activeIndex != 0} {return}
 	set whatTo [expr {$CustomSave::name eq {}?{}:[string cat [file join $Files::dir $CustomSave::name] $CustomSave::extension]}]
-	.tlCustomSave.fF.lbPath.lL1 config -text $whatTo
+	$CustomSave::wPath.fF.lbPath.lL1 config -text $whatTo
 	set CustomSave::activeContent $CustomSave::name
 }
 proc CustomSave::tracePath [list before nameOfThisProc empty operation] {
 	if {$CustomSave::activeIndex != 1} {return}
 	set whatTo [expr {$CustomSave::path eq {}?{}:[file normalize  $CustomSave::path] }]
-	.tlCustomSave.fF.lbPath.lL1 config -text $whatTo
+	$CustomSave::wPath.fF.lbPath.lL1 config -text $whatTo
 	set CustomSave::activeContent $CustomSave::path
 	
 }
@@ -177,7 +198,7 @@ proc CustomSave::configure {} {
 	
 }
 proc CustomSave::show {} {
-	Util::showToplevel .tlCustomSave
+	Util::showToplevel $CustomSave::wPath
 }
 # due to Tcl's [::tcl::mathfunc::rand]'s shortfallings
 proc Util::semiRandom [list [list subrange 1]] {
@@ -338,39 +359,32 @@ proc Util::showToplevel [list whichToplevel] {
 	#wm attributes .tlAbout -topmost 1
 }
 namespace eval About {
-	
+	variable wPath .tlAbout
 	# create a toplevel window ; make it invisible (iconify it) ;  'bind' the X button
-	toplevel 	.tlAbout
-	wm withdraw .tlAbout
-	wm protocol .tlAbout WM_DELETE_WINDOW {wm withdraw .tlAbout}
-	wm title 	.tlAbout About
+	toplevel 	$wPath
+	wm withdraw $wPath
+	wm protocol $wPath WM_DELETE_WINDOW {wm withdraw $About::wPath}
+	wm protocol $wPath WM_DELETE_WINDOW {wm withdraw $About::wPath}
+	wm title 	$wPath About
 	
 	
 	# [font configure TkDefaultFont] => e.g. -family {Segoe UI} -size 9 -weight normal -slant roman -underline 0 -overstrike 0
 	variable fSize [dict get [font configure TkDefaultFont] -size]
 	
 	#
-	label .tlAbout.lL1 -text [wm title .] -font [list -family Tahoma -size [expr {$About::fSize * 2}]]
-	label .tlAbout.lL2 -text {A PDF Authoring Tool} -font [list -family Tahoma -size [expr {int($About::fSize * 1.5)}]]
-	label .tlAbout.lL3 -text "$Icon::Unicode::Copyright 2020 Abdullah Fatota"
+	label $wPath.lL1 -text [wm title .] -font [list -family Tahoma -size [expr {$fSize * 2}]]
+	label $wPath.lL2 -text {A PDF Authoring Tool} -font [list -family Tahoma -size [expr {int($fSize * 1.5)}]]
+	label $wPath.lL3 -text "$Icon::Unicode::Copyright 2020 Abdullah Fatota"
 	
 	#
-	pack .tlAbout.lL1 .tlAbout.lL2 .tlAbout.lL3 -pady 10 -padx 2cm
+	pack $wPath.lL1 $wPath.lL2 $wPath.lL3 -pady 10 -padx 2cm
 	
 }
 proc About::show {} {
-	Util::showToplevel .tlAbout
-}
-namespace eval MainPane {
-	
-	variable background coral
-	
-	#
-	panedwindow .pwPane -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -background $MainPane::background
-	pack .pwPane -expand 1 -fill both -side bottom
-
+	Util::showToplevel $About::wPath
 }
 namespace eval Files {
+	variable wPath $SecondFrame::wPath.lfFiles
 	# aesthetic properties
 	variable lfRelief ridge toolbarPad 10 highThickness 2 highColor yellow borderWidth 10 frameBorderWidth 5 parentBg [.pwPane cget -background]
 	
@@ -389,35 +403,39 @@ namespace eval Files {
 	# (>dirLimit) - files start
 	variable dirLimit
 	
-	# Constructing Windows/Widgets
+	## Construction ##
 	# the frame
-	labelframe 	.pwPane.lfFiles 	-text {Items in current directory} -relief $Files::lfRelief -borderwidth $Files::frameBorderWidth
+	frame 	$wPath  -relief $Files::lfRelief -borderwidth $Files::frameBorderWidth
 	
 	# left listbox for Icons
-	listbox		.pwPane.lfFiles.lbL		-relief flat -highlightthickness 2 -highlightcolor blue  -background $Files::parentBg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center -width -1 -selectforeground {} -selectbackground $Files::parentBg
+	listbox		$wPath.lbL		-relief flat -highlightthickness 2 -highlightcolor blue  -background $Files::parentBg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center -width -1 -selectforeground {} -selectbackground $Files::parentBg
 	
 	# right hand-side listbox for listing files
-	listbox 	.pwPane.lfFiles.lbR 	-relief flat -highlightthickness 2 -highlightcolor blue  -background $Files::parentBg -cursor hand2 -activestyle none -selectmode browse -listvar Files::Rvar
+	listbox 	$wPath.lbR 	-relief flat -highlightthickness 2 -highlightcolor blue  -background $Files::parentBg -cursor hand2 -activestyle none -selectmode browse -listvar Files::Rvar
 	
 	# toolbar
-	frame 		.pwPane.lfFiles.fToolbar -relief groove -borderwidth 10 -height 50
+	frame 		$wPath.fToolbar -relief groove -borderwidth 10 -height 50
+	
+	# banner
+	label		$wPath.lBanner -text {Items in current directory}
+	ttk::separator		$wPath.ttkspLine -orient horizontal
 	
 	# scrollbars
-	scrollbar 	.pwPane.lfFiles.sbH -orient vertical -relief groove -command {.pwPane.lfFiles.lbR yview}
-	scrollbar 	.pwPane.lfFiles.sbV -orient horizontal -relief groove -command {.pwPane.lfFiles.lbR xview}
+	scrollbar 	$wPath.sbH -orient vertical -relief groove -command {$Files::wPath.lbR yview}
+	scrollbar 	$wPath.sbV -orient horizontal -relief groove -command {$Files::wPath.lbR xview}
 	
 	# {...} menu
-	menu 		.pwPane.lfFiles.mDots 	-tearoff 0
+	menu 		$wPath.mDots 	-tearoff 0
 	
 	# toolbar elements
-	button 		.pwPane.lfFiles.fToolbar.bFilter 	-text "$Icon::Unicode::QuasiFilter Filter PDF Files"			-relief groove -overrelief solid
-	button 		.pwPane.lfFiles.fToolbar.bReload 	-text "$Icon::Unicode::Reload Reload"							-relief groove -overrelief solid
-	button 		.pwPane.lfFiles.fToolbar.bCd 		-text "$Icon::Unicode::FolderOpen List via OS' File explorer" 	-relief groove -command {Files::list_ [tk_chooseDirectory -initialdir $Files::dir]}  -overrelief solid
-	button 		.pwPane.lfFiles.fToolbar.bDots 		-text $Icon::Unicode::3Dots 									-relief groove -overrelief solid
+	button 		$wPath.fToolbar.bFilter 	-text "$Icon::Unicode::QuasiFilter Filter PDF Files"			-relief groove -overrelief solid
+	button 		$wPath.fToolbar.bReload 	-text "$Icon::Unicode::Reload Reload"							-relief groove -overrelief solid
+	button 		$wPath.fToolbar.bCd 		-text "$Icon::Unicode::FolderOpen List via OS' File explorer" 	-relief groove -command {Files::list_ [tk_chooseDirectory -initialdir $Files::dir]}  -overrelief solid
+	button 		$wPath.fToolbar.bDots 		-text $Icon::Unicode::3Dots 									-relief groove -overrelief solid
 	
 	# Invisible Toolbar labels (to be used for event bindings
-	label 		.pwPane.lfFiles.fToolbar.lL1 -bg blue
-	label 		.pwPane.lfFiles.fToolbar.lL2 -bg red	
+	label 		$wPath.fToolbar.lL1 -bg blue
+	label 		$wPath.fToolbar.lL2 -bg red	
 	
 	
 	# toolbar's children ; its length ; Index of which one is last non-hidden button? ; 
@@ -435,11 +453,7 @@ namespace eval Files {
 	# columnconfigure of any button on the toolbar 
 	variable Lcolumnconfigure
 }
-namespace eval Tooltip  {
-	set location {}
-	set pins 	[dict create]
-	set boards 	[dict create]
-}
+
 namespace eval Menu {
 	
 	
@@ -512,10 +526,11 @@ namespace eval Menu::DocPage {
 }
 namespace eval Toolbar {
 
-	variable borderWidth 0
+	variable wPath .fToolbar \
+	borderWidth 0
 	
-	frame		.fToolbar -borderwidth $Toolbar::borderWidth -relief flat -background lightblue
-	pack 		.fToolbar -side top -fill x
+	frame		$Toolbar::wPath -borderwidth $Toolbar::borderWidth -relief flat -background lightblue
+	pack 		$Toolbar::wPath -side top -expand 0 -fill none
 	
 	# Left to right, direction of laying elements.
 	#set direction left
@@ -537,7 +552,7 @@ proc Toolbar::newPayload [list pathName args] {
 	
 	lassign [Util::splitOnWord args [list pack grid plcae]] Attr Geom
 	
-	puts [list Attr => $Attr Geom -> $Geom] 
+	#puts [list Attr => $Attr Geom -> $Geom] 
 	
 	# creation of button/...
 	set pathName [$Type $pathName {*}$Attr]
@@ -561,20 +576,19 @@ proc Toolbar::newPayload [list pathName args] {
 	}
 	return $pathName
 }
-Toolbar::newPayload .fToolbar.bButton1 -relief raised -text 123 -WithSeparator 1 -Type button pack
+Toolbar::newPayload $Toolbar::wPath.bButton1 -relief raised -text 123 -WithSeparator 1 -Type button pack
 namespace eval DartButton {} {
 	# numbering according to Toolbar::childrenCount
 	variable children [dict create]
 }
-proc DartButton::new [list pathName  args] {
-	Util::injectVariablesAndRemoveSwitchesFromAList args -variable -Options -DefaultIndex
+proc DartButton::new [list pathName args] {
+	Util::injectVariablesAndRemoveSwitchesFromAList args -variable -Options -DefaultOption -command
 	set childCount $Toolbar::childrenCount
-	puts [list DartButton::new>> $pathName $childCount $args >>]
+	#puts [list DartButton::new>> $pathName $childCount $args >>]
 	#the container
 	set contain [frame $pathName -relief flat -borderwidth 1]
-	
 	#the button
-	set b1 [button ${contain}.b1 {*}$args -relief flat ]
+	set b1 [button ${contain}.b1 {*}$args -relief flat -command $command] 
 	#separator
 	set s [ttk::separator ${contain}.s -orient vertical]
 	#dart "option" button; to trigger a menu of options (not tk_optionMenu)
@@ -593,8 +607,8 @@ proc DartButton::new [list pathName  args] {
 	# add option; 0 => buit-in file lister . 1 => OS' native
 	foreach op $Options value [Util::len_range 0 [llength $Options]] { $m add radiobutton -label $op -value $value -variable $variable}
 	
-	# set default
-	set $variable $DefaultIndex
+	# set default -> index
+	set $variable $DefaultOption
 	
 	#dict set NorthBar::dart_children $NorthBar::cildren_count [dict create]
 	dict set DartButton::children $childCount $contain
@@ -619,13 +633,13 @@ proc Files::configure {args} {
 	
 	
 	# ... Button Post Menu
-	.pwPane.lfFiles.fToolbar.bDots configure -command [list Menu::post .pwPane.lfFiles.fToolbar.bDots .pwPane.lfFiles.mDots]
-	.pwPane.lfFiles.mDots add command -label "$Icon::Unicode::UpBoldArrow Bring Up Toolbar"
+	$Files::wPath.fToolbar.bDots configure -command [list Menu::post $Files::wPath.fToolbar.bDots $Files::wPath.mDots]
+	$Files::wPath.mDots add command -label "$Icon::Unicode::UpBoldArrow Bring Up Toolbar"
 	##############################################################################################
 	
 	# Filter PDFs
-	bind .pwPane.lfFiles.fToolbar.bFilter <ButtonRelease> {
-		set all [.pwPane.lfFiles.lbR get [expr $Files::dirLimit + 1] end]
+	bind $Files::wPath.fToolbar.bFilter <ButtonRelease> {
+		set all [$Files::wPath.lbR get [expr $Files::dirLimit + 1] end]
 		#puts [list all -> $all]
 		#
 		set all [lsearch -all -inline $all *.pdf]
@@ -635,43 +649,44 @@ proc Files::configure {args} {
 	##############################################################################################
 	
 	# configure L and R to update attached scrollbars
-	.pwPane.lfFiles.lbR configure -yscrollcommand {.pwPane.lfFiles.sbH set}
-	.pwPane.lfFiles.lbR configure -xscrollcommand {.pwPane.lfFiles.sbV set}
+	$Files::wPath.lbR configure -yscrollcommand {$Files::wPath.sbH set}
+	$Files::wPath.lbR configure -xscrollcommand {$Files::wPath.sbV set}
 	##############################################################################################
 	
-	# Occupy a pane in the panedwindow
-	.pwPane add .pwPane.lfFiles
+	# pack banner
+	pack 		$Files::wPath.lBanner -side top -fill x
+	pack		$Files::wPath.ttkspLine -side top -fill x
 	##############################################################################################
 	
 	# pack the scroll bars
-	pack 		.pwPane.lfFiles.sbH -side right 	-fill y
-	pack 		.pwPane.lfFiles.sbV -side bottom 	-fill x
+	pack 		$Files::wPath.sbH -side right 	-fill y
+	pack 		$Files::wPath.sbV -side bottom 	-fill x
 	##############################################################################################
 	
 	# pack the toolbar
-	pack .pwPane.lfFiles.fToolbar 		-side top 	-fill x		-padx 10 	-pady 10 -expand 0
+	pack $Files::wPath.fToolbar 		-side top 	-fill x		-padx 10 	-pady 10 -expand 0
 	##############################################################################################
 	
 	# pack the list boxes
-	pack .pwPane.lfFiles.lbL 	-side left 	-fill y
-	pack .pwPane.lfFiles.lbR 	-side left 	-fill both -expand 1
+	pack $Files::wPath.lbL 	-side left 	-fill y
+	pack $Files::wPath.lbR 	-side left 	-fill both -expand 1
 	##############################################################################################
 	
 	# grid button(s) on toolbar
-	grid .pwPane.lfFiles.fToolbar.bFilter 	-row 0 -column 0 -sticky we	
-	grid .pwPane.lfFiles.fToolbar.bReload 	-row 0 -column 1 -sticky we
-	grid .pwPane.lfFiles.fToolbar.bCd 		-row 0 -column 2 -sticky we	
-	grid .pwPane.lfFiles.fToolbar.bDots 	-row 0 -column 3 -sticky we
+	grid $Files::wPath.fToolbar.bFilter 	-row 0 -column 0 -sticky we	
+	grid $Files::wPath.fToolbar.bReload 	-row 0 -column 1 -sticky we
+	grid $Files::wPath.fToolbar.bCd 		-row 0 -column 2 -sticky we	
+	grid $Files::wPath.fToolbar.bDots 	-row 0 -column 3 -sticky we
 	##############################################################################################
 	
 	# uniform width columns
-	grid columnconfigure .pwPane.lfFiles.fToolbar all -weight 1 -minsize 0 -uniform 1
-	grid columnconfigure .pwPane.lfFiles.fToolbar 3 -weight 0  -uniform 2
+	grid columnconfigure $Files::wPath.fToolbar all -weight 1 -minsize 0 -uniform 1
+	grid columnconfigure $Files::wPath.fToolbar 3 -weight 0  -uniform 2
 	##############################################################################################
 	
 	# grid Indicator labels
-	grid .pwPane.lfFiles.fToolbar.lL1  -row 1 -column 0 -sticky w -columnspan 3
-	grid .pwPane.lfFiles.fToolbar.lL2  -row 2 -column 0 -sticky w -columnspan 3
+	grid $Files::wPath.fToolbar.lL1  -row 1 -column 0 -sticky w -columnspan 3
+	grid $Files::wPath.fToolbar.lL2  -row 2 -column 0 -sticky w -columnspan 3
 	##############################################################################################
 	
 	
@@ -680,10 +695,10 @@ proc Files::configure {args} {
 	# 1) set canonical width of any toolbar button
 	# 2) set padx for (invisible) labels
 	# 3) bind each on <Map> and <Unmap> effictevly to test if visible with the padding applied.
-	bind .pwPane.lfFiles.fToolbar.lL1 <Visibility> {
+	bind $Files::wPath.fToolbar.lL1 <Visibility> {
 	
 		# since Items are returned as LIFO
-		set Files::toolbarChildren [lreverse [grid slaves .pwPane.lfFiles.fToolbar -row 0]]
+		set Files::toolbarChildren [lreverse [grid slaves $Files::wPath.fToolbar -row 0]]
 		# except ... menu
 		set Files::toolbarChildren [lrange $Files::toolbarChildren 0 end-1]
 		set Files::toolbarChildrenLength [llength $Files::toolbarChildren]
@@ -692,61 +707,61 @@ proc Files::configure {args} {
 		# Nothing is there
 		set Files::indexLastOnMenu -1
 		# its columnconfigure
-		set Files::Lcolumnconfigure [grid columnconfigure .pwPane.lfFiles.fToolbar $Files::indexLastOnToolbar]
+		set Files::Lcolumnconfigure [grid columnconfigure $Files::wPath.fToolbar $Files::indexLastOnToolbar]
 		# Width of Toolbar - width(... button)
 		#set Files::Lwidth [winfo width [lindex $Files::toolbarChildren $Files::indexLastOnToolbar] ]
-		set Files::Lwidth [expr { [winfo width .pwPane.lfFiles.fToolbar] - [winfo width .pwPane.lfFiles.fToolbar.bDots] }]
+		set Files::Lwidth [expr { [winfo width $Files::wPath.fToolbar] - [winfo width $Files::wPath.fToolbar.bDots] }]
 		# Invisible Indicators (by magic of [grid]'s -padx option)
-		grid config .pwPane.lfFiles.fToolbar.lL1 -padx [list [expr {$Files::Lwidth / 2 - [winfo width .pwPane.lfFiles.fToolbar.lL1] } ] 0]
-		grid config .pwPane.lfFiles.fToolbar.lL2 -padx [list [expr {$Files::Lwidth 	 - [winfo width .pwPane.lfFiles.fToolbar.lL2] } ] 0]
+		grid config $Files::wPath.fToolbar.lL1 -padx [list [expr {$Files::Lwidth / 2 - [winfo width $Files::wPath.fToolbar.lL1] } ] 0]
+		grid config $Files::wPath.fToolbar.lL2 -padx [list [expr {$Files::Lwidth 	 - [winfo width $Files::wPath.fToolbar.lL2] } ] 0]
 
 
 		# bind <Unmap> and <Map>
-		bind .pwPane.lfFiles.fToolbar.lL1 <Unmap> {
+		bind $Files::wPath.fToolbar.lL1 <Unmap> {
 			set b [lindex $Files::toolbarChildren $Files::indexLastOnToolbar]
 			#puts [list b is $b]
 			grid forget $b
 			# LIFO Order
-			.pwPane.lfFiles.mDots insert $Files::indexLastOnToolbar command -label [$b cget -text] -command [$b cget -command]
+			$Files::wPath.mDots insert $Files::indexLastOnToolbar command -label [$b cget -text] -command [$b cget -command]
 			incr Files::indexLastOnMenu
 			
-			grid columnconfigure .pwPane.lfFiles.fToolbar $Files::indexLastOnToolbar -weight 0 -uniform {}
+			grid columnconfigure $Files::wPath.fToolbar $Files::indexLastOnToolbar -weight 0 -uniform {}
 			# quarter the padding distance
-			puts [list _newx1 [set _newx1 [list [expr {[winfo width .pwPane.lfFiles.fToolbar] / 2  } ]  0] ]]
-			puts [list _newx2 [set _newx2 [list [expr {[winfo width .pwPane.lfFiles.fToolbar] } ]  0]   ]]
-			grid config .pwPane.lfFiles.fToolbar.lL1 -padx $_newx1
-			grid config .pwPane.lfFiles.fToolbar.lL2 -padx $_newx2
+			puts [list _newx1 [set _newx1 [list [expr {[winfo width $Files::wPath.fToolbar] / 2  } ]  0] ]]
+			puts [list _newx2 [set _newx2 [list [expr {[winfo width $Files::wPath.fToolbar] } ]  0]   ]]
+			grid config $Files::wPath.fToolbar.lL1 -padx $_newx1
+			grid config $Files::wPath.fToolbar.lL2 -padx $_newx2
 			incr Files::indexLastOnToolbar -1
 			}
-		bind .pwPane.lfFiles.fToolbar.lL2 <Map> {
+		bind $Files::wPath.fToolbar.lL2 <Map> {
 			if { $Files::indexLastOnMenu  !=  -1 } {
 				set _col_target [expr $Files::indexLastOnToolbar+1]
 				set b [lindex $Files::toolbarChildren $_col_target]
 				puts [list b is $b ]
 				grid $b -row 0 -column $_col_target -sticky we
-				.pwPane.lfFiles.mDots delete $Files::indexLastOnMenu
+				$Files::wPath.mDots delete $Files::indexLastOnMenu
 				incr Files::indexLastOnMenu -1
 				
-				grid columnconfigure .pwPane.lfFiles.fToolbar $_col_target {*}$Files::Lcolumnconfigure
+				grid columnconfigure $Files::wPath.fToolbar $_col_target {*}$Files::Lcolumnconfigure
 				# x4 x-padding distance
-					puts [list _backx1 [set _newx1 [list [expr { [lindex [dict get [grid  info .pwPane.lfFiles.fToolbar.lL1] -padx] 0] * 2  } ]  0]   ]]
-					puts [list _backx2 [set _newx2 [list [expr { [lindex [dict get [grid  info .pwPane.lfFiles.fToolbar.lL2] -padx] 0] * 2  } ]  0]   ]]
+					puts [list _backx1 [set _newx1 [list [expr { [lindex [dict get [grid  info $Files::wPath.fToolbar.lL1] -padx] 0] * 2  } ]  0]   ]]
+					puts [list _backx2 [set _newx2 [list [expr { [lindex [dict get [grid  info $Files::wPath.fToolbar.lL2] -padx] 0] * 2  } ]  0]   ]]
 				
-					grid config .pwPane.lfFiles.fToolbar.lL1 -padx $_newx1
-					grid config .pwPane.lfFiles.fToolbar.lL2 -padx $_newx2
+					grid config $Files::wPath.fToolbar.lL1 -padx $_newx1
+					grid config $Files::wPath.fToolbar.lL2 -padx $_newx2
 
 				incr Files::indexLastOnToolbar
 			}
 				
 		}
 		# run all above once.
-		bind .pwPane.lfFiles.fToolbar.lL1 <Visibility> {}
+		bind $Files::wPath.fToolbar.lL1 <Visibility> {}
 	}
 	##############################################################################################
 	
 	
 	# when the pointer hovers on the listbox
-	bind .pwPane.lfFiles.lbR <Motion> {
+	bind $Files::wPath.lbR <Motion> {
 		set index [%W index @%x,%y]
 		#puts [list index is $index]
 		#"deselect" all, costly
@@ -766,7 +781,7 @@ proc Files::configure {args} {
 	##############################################################################################
 	
 	# when it leaves
-	bind .pwPane.lfFiles.lbR <Leave> {
+	bind $Files::wPath.lbR <Leave> {
 		#costly
 		#for [list set len [expr [%W size] - 1]] {$len >= 0} [list incr len -1] { %W itemconfigure $len -background {}}
 		#un-highlight the last index
@@ -775,11 +790,11 @@ proc Files::configure {args} {
 	##############################################################################################
 	
 	# when an item is selected
-	bind .pwPane.lfFiles.lbR <<ListboxSelect>> {
+	bind $Files::wPath.lbR <<ListboxSelect>> {
 		# current selected Index
 		set index 	[%W curselection]
 		# what's on it
-		set Label 	[.pwPane.lfFiles.lbR get $index]
+		set Label 	[$Files::wPath.lbR get $index]
 		# if <-
 		
 		# Assuming R is cleared
@@ -831,9 +846,9 @@ proc Files::list_ [list [list path ./] [list bypass 0] ] {
 	set Files::Lvar [lrepeat [expr [llength $d ]+ 1 ] $Icon::Unicode::FolderClosed ]
 	
 	#
-	#set index [.pwPane.lfFiles.lbR index @[winfo x .pwPane.lfFiles.lbR],[winfo y .pwPane.lfFiles.lbR] ]
+	#set index [$Files::wPath.lbR index @[winfo x $Files::wPath.lbR],[winfo y $Files::wPath.lbR] ]
 	#
-	#.pwPane.lfFiles.lbR itemconfigure $index -background $Files::highColor
+	#$Files::wPath.lbR itemconfigure $index -background $Files::highColor
 }
 proc Files::list_volumes lst {
 	#lst => list of volumes
@@ -858,10 +873,7 @@ proc Files::list_volumes lst {
 	set Files::Lvar [lrepeat [expr [llength $d ] + 1 ] $Icon::Unicode::Folders]
 	
 }
-proc Tooltip::place args {
-	#Tooltip::place -widget x -anchor 'ne' -show which Board
-	Util::args $args -widget -anchor -show
-}
+
 	
 
 proc Menu::post {at menu} {
@@ -889,12 +901,12 @@ proc Toolbar::createMenuButtons args {
 	dict for {order i} $mRootChildren {
 		if {$order in [dict get $mRootChildren cascades]} {
 			# {#} will be replaced with name/path of the button
-			dict set Toolbar::menuButtonChildren .fToolbar.bMB[incr Toolbar::menuButtonChildrenCount] [dict get $Menu::labels $i] 
-			Toolbar::newPayload .fToolbar.bMB$Toolbar::menuButtonChildrenCount -Type button  -text [dict get $Menu::labels $i] -command "Menu::post # [dict get $Menu::cascades $i]" -relief flat -overrelief groove pack
+			dict set Toolbar::menuButtonChildren $Toolbar::wPath.bMB[incr Toolbar::menuButtonChildrenCount] [dict get $Menu::labels $i] 
+			Toolbar::newPayload $Toolbar::wPath.bMB$Toolbar::menuButtonChildrenCount -Type button  -text [dict get $Menu::labels $i] -command "Menu::post # [dict get $Menu::cascades $i]" -relief flat -overrelief groove pack
 			#lappend NorthBar::menu_button_children $NorthBar::children_count
 			} elseif {$order in [dict get $mRootChildren commands]} {
-			dict set Toolbar::menuButtonChildren .fToolbar.bMB[incr Toolbar::menuButtonChildrenCount] [dict get $Menu::labels $i] 
-			Toolbar::newPayload .fToolbar.bMB$Toolbar::menuButtonChildrenCount -Type button  -text [dict get $Menu::labels $i] -command [dict get $Menu::commands $i] -relief flat -overrelief groove pack
+			dict set Toolbar::menuButtonChildren $Toolbar::wPath.bMB[incr Toolbar::menuButtonChildrenCount] [dict get $Menu::labels $i] 
+			Toolbar::newPayload $Toolbar::wPath.bMB$Toolbar::menuButtonChildrenCount -Type button  -text [dict get $Menu::labels $i] -command [dict get $Menu::commands $i] -relief flat -overrelief groove pack
 			#lappend NorthBar::menu_button_children $NorthBar::children_count
 		}
 	}
@@ -905,7 +917,7 @@ proc Toolbar::createSwitchMenusButton args {
 	
 	
 	# get full window path of the new button
-	lassign [Toolbar::newPayload .fToolbar.bMenuSwitch -relief flat -overrelief groove -text "$Icon::Unicode::UpBoldArrow Bring Up Menu"  pack] b
+	lassign [Toolbar::newPayload $Toolbar::wPath.bMenuSwitch -relief flat -overrelief groove -text "$Icon::Unicode::UpBoldArrow Bring Up Menu"  pack] b
 	
 	#then send it, in command
 	$b config -command [list Toolbar::switchMenus $b]
@@ -939,13 +951,19 @@ proc Toolbar::switchMenus w {
 		}
 }
 namespace eval Tabs {
+	variable wPath $SecondFrame::wPath.lfTabs
+	## Construction ##
+	labelframe	$wPath	-borderwidth 5	-relief groove
+	# banner
 	
-	labelframe	.pwPane.lfTabs	-text {Current Tabs} -borderwidth 5	-relief groove
-	button		.pwPane.lfTabs.bB0	-text {Create New Document}		-command Tabs::newDocument
-	.pwPane add .pwPane.lfTabs		-stretch always
-	grid		.pwPane.lfTabs.bB0	-row 0	-column	0	-columnspan 2 -sticky nswe
+		label				$wPath.lBanner -text {Current Tabs}
+		ttk::separator		$wPath.ttkspLine -orient horizontal
+		grid				$wPath.lBanner 	-row 0 -column 0 -columnspan 2 -sticky nswe
+		grid				$wPath.ttkspLine -row 1 -column 0 -columnspan 2 -sticky nswe
+	button		$wPath.bB0	-text {Create New Document}		-command Tabs::newDocument
+	grid		$wPath.bB0	-row 2	-column	0	-columnspan 2 -sticky nswe
 	
-	variable 	documentRowBegin [dict create]		documentRowEnd		[dict create]		documentPageCount [dict create ]		documentCount 0		pages [dict create]		pagesCount 0 	newRow 1
+	variable 	documentRowBegin [dict create]		documentRowEnd		[dict create]		documentPageCount [dict create ]		documentCount 0		pages [dict create]		pagesCount 0 	newRow 3
 }
 
 proc Tabs::newDocument {} {
@@ -953,11 +971,11 @@ proc Tabs::newDocument {} {
 	incr Tabs::documentCount
 	dict set documentRowBegin $Tabs::documentCount	$Tabs::newRow
 	dict set documentRowEnd $Tabs::documentCount $Tabs::newRow
-	button		.pwPane.lfTabs.bD$Tabs::documentCount	-text "Blank Document $Tabs::documentCount"
-	button		.pwPane.lfTabs.bDM$Tabs::documentCount	-text $Icon::Unicode::3Dots		-command "Menu::post .pwPane.lfTabs.bDM$Tabs::documentCount .mDocument"	
+	button		$Tabs::wPath.bD$Tabs::documentCount	-text "Blank Document $Tabs::documentCount"
+	button		$Tabs::wPath.bDM$Tabs::documentCount	-text $Icon::Unicode::3Dots		-command "Menu::post $Tabs::wPath.bDM$Tabs::documentCount .mDocument"	
 	
-	grid 		.pwPane.lfTabs.bD$Tabs::documentCount 	-row $Tabs::newRow	-column 0	-sticky we	-pady [list 0.5c 0]
-	grid 		.pwPane.lfTabs.bDM$Tabs::documentCount 	-row $Tabs::newRow	-column 1	-sticky es
+	grid 		$Tabs::wPath.bD$Tabs::documentCount 	-row $Tabs::newRow	-column 0	-sticky we	-pady [list 0.5c 0]
+	grid 		$Tabs::wPath.bDM$Tabs::documentCount 	-row $Tabs::newRow	-column 1	-sticky es
 	
 	incr Tabs::newRow
 	Tabs::newPage $Tabs::newRow
@@ -970,92 +988,149 @@ proc Tabs::newPage row {
 	# page No.
 	set no [dict get $Tabs::documentPageCount $Tabs::documentCount]
 	#
-	button		.pwPane.lfTabs.bP$Tabs::documentCount/$no					-text "Page $no"
-	button		.pwPane.lfTabs.bPM$Tabs::documentCount/$no					-text $Icon::Unicode::3Dots		-command "Menu::post .pwPane.lfTabs.bPM$Tabs::documentCount/$no .mPage"
-	grid		.pwPane.lfTabs.bP$Tabs::documentCount/$no					-row $row	-column 0 	-sticky we	-padx [list 0.5c 0]
-	grid		.pwPane.lfTabs.bPM$Tabs::documentCount/$no					-row $row	-column 1	-sticky	e
+	button		$Tabs::wPath.bP$Tabs::documentCount/$no					-text "Page $no"
+	button		$Tabs::wPath.bPM$Tabs::documentCount/$no					-text $Icon::Unicode::3Dots		-command "Menu::post $Tabs::wPath.bPM$Tabs::documentCount/$no .mPage"
+	grid		$Tabs::wPath.bP$Tabs::documentCount/$no					-row $row	-column 0 	-sticky we	-padx [list 0.5c 0]
+	grid		$Tabs::wPath.bPM$Tabs::documentCount/$no					-row $row	-column 1	-sticky	e
 	incr Tabs::newRow
 }
 namespace eval Draw {
-	labelframe	.pwPane.lfCanvas
-	.pwPane	add .pwPane.lfCanvas -sticky nswe -stretch always
-	frame		.pwPane.lfCanvas.fTools -borderwidth 2 -relief groove
-	pack .pwPane.lfCanvas.fTools -side left -fill y
-	pack [label 		.pwPane.lfCanvas.fTools.lL -text Tools]
-	pack [ttk::separator	.pwPane.lfCanvas.fTools.sLine -orient horizontal] -fill x -pady [list 0 0.5c]
-	pack [button		.pwPane.lfCanvas.fTools.bB1 -text {Helper Lines} -command HLines::new]
-	canvas		.pwPane.lfCanvas.cC
-	scrollbar	.pwPane.lfCanvas.sbV -orient vertical -command {.pwPane.lfCanvas.cC yview}
-	scrollbar	.pwPane.lfCanvas.sbH -orient horizontal -command {.pwPane.lfCanvas.cC xview}
-	pack .pwPane.lfCanvas.sbV -side right -fill y
-	pack .pwPane.lfCanvas.sbH -side bottom -fill x
-	pack .pwPane.lfCanvas.cC -side left -fill both
+	variable wPath [labelframe $MainPane::wPath.lfCanvas]
+	.pwPane	add $wPath -sticky nswe -stretch always
+	canvas		$wPath.cC
+	scrollbar	$wPath.sbV -orient vertical -command {$Draw::wPath.cC yview}
+	scrollbar	$wPath.sbH -orient horizontal -command {$Draw::wPath.cC xview}
+	pack $wPath.sbV -side right -fill y
+	pack $wPath.sbH -side bottom -fill x
+	pack $wPath.cC -side left -fill both
 	
-	.pwPane.lfCanvas.cC configure -xscrollcommand {.pwPane.lfCanvas.sbH set} -yscrollcommand {.pwPane.lfCanvas.sbV set}
-	bind .pwPane.lfCanvas.cC <Configure> {%W configure -scrollregion [%W bbox all]}
+	$wPath.cC configure -xscrollcommand {$Draw::wPath.sbH set} -yscrollcommand {$Draw::wPath.sbV set}
+	bind $wPath.cC <Configure> {%W configure -scrollregion [%W bbox all]}
 	
 	
 	# new page
-	.pwPane.lfCanvas.cC 	create rectangle [list 11 11 300 500] -fill {} -outline black
-	#variable tTest		.pwPane.lfCanvas.cC create text 8 8 -text 123
-	#puts ==[.pwPane.lfCanvas.cC itemcget [] -font]==
-	bind .pwPane.lfCanvas.cC <Map> {
-		variable ::Draw::cX 	[.pwPane.lfCanvas.cC canvasx 0] ::Draw::cY [.pwPane.lfCanvas.cC canvasy 0]
-		variable ::Draw::tTest 	[.pwPane.lfCanvas.cC create text $Draw::cX $Draw::cY -text test -fill {}]
-		variable ::Draw::f 		[.pwPane.lfCanvas.cC itemcget $Draw::tTest -font]
+	$wPath.cC 	create rectangle [list 11 11 300 500] -fill {} -outline black
+	#variable tTest		$wPath.cC create text 8 8 -text 123
+	#puts ==[$wPath.cC itemcget [] -font]==
+	bind $wPath.cC <Map> {
+		variable ::Draw::cX 	[$Draw::wPath.cC canvasx 0] ::Draw::cY [$Draw::wPath.cC canvasy 0]
+		variable ::Draw::tTest 	[$Draw::wPath.cC create text $Draw::cX $Draw::cY -text test -fill {}]
+		variable ::Draw::f 		[$Draw::wPath.cC itemcget $Draw::tTest -font]
 		variable ::Draw::fHeight [dict get [font metrics $::Draw::f] -linespace]
-		lassign 				[.pwPane.lfCanvas.cC coords {all} ] {} {} ::Draw::cW ::Draw::cH
+		lassign 				[$Draw::wPath.cC coords {all} ] {} {} ::Draw::cW ::Draw::cH
 		variable ::Draw::cW [::tcl::mathfunc::int $Draw::cW] ::Draw::cH [::tcl::mathfunc::int $Draw::cH]
-		.pwPane.lfCanvas.fTools.bB1 invoke
-		bind .pwPane.lfCanvas.cC <Map> {}
+		$Tools::wPath.bB1 invoke
+		bind $Draw::wPath.cC <Map> {}
 	}
 }
-# Draw::Properties
+
+namespace eval Tooltip  {
+	variable pBG {yellow} 
+	variable wPath [frame .fTooltip -background $pBG -highlightcolor black] \
+	title	[dict create] \
+	text	[dict create] \
+	active No \
+	waitTimeInMS 500
+	variable x
+	variable y
+	variable showTitle
+	variable showText
+	variable lastAfterId {}
+	pack [label $wPath.lUp -bg $pBG] [label $wPath.lDown -bg $pBG] -side top
+}
+proc Tooltip::new [list on title text ] {
+	dict set Tooltip::title $on $title
+	dict set Tooltip::text $on $text
+	bind $on <Motion> "Tooltip::onMotion %W" ;
+	bind $on <Enter> "Tooltip::onEnter $on" ; # %x %y with <Enter> USELESS
+	bind $on <Leave> "Tooltip::onLeave"
+	
+	#bind $on <Motion> {lassign [list %x %y %X %Y] x y rx ry 
+	#incr x [winfo x %W] ; incr y [winfo y %W]
+	#incr x [winfo x [winfo parent %W]] ; incr y [winfo y [winfo parent %W]]
+	#puts [list $x $y $rx $ry [expr { [winfo rooty %W] - [winfo pointery %W] - [winfo rooty .]}]  [expr {[winfo pointery .] - [winfo rooty .]}] ]
+	#}
+}
+proc Tooltip::show {} {
+	puts [list -> [place configure $Tooltip::wPath -x $Tooltip::x -y $Tooltip::y ] => [info vars]]
+	$Tooltip::wPath.lUp config -text $Tooltip::showTitle
+	$Tooltip::wPath.lDown config -text $Tooltip::showText
+	puts [list ShouldShow $Tooltip::x $Tooltip::y $Tooltip::wPath]
+}
+proc Tooltip::onMotion [list w] {
+	#set Tooltip::x [expr {[winfo pointerx .] - [winfo rootx .]}] ; Tooltip::x [winfo x $w]
+	set Tooltip::x [winfo width [winfo parent $w]]
+	set Tooltip::y [expr {[winfo pointery .] - [winfo rooty .]}]
+	#puts [list $Tooltip::x $Tooltip::y]
+}
+proc Tooltip::onEnter [list on ] {
+	if {$Tooltip::lastAfterId ne {}} {after cancel $Tooltip::lastAfterId}
+	set Tooltip::showTitle		[dict get $Tooltip::title $on]
+	set Tooltip::showText		[dict get $Tooltip::text $on]
+	set Tooltip::lastAfterId	[after $Tooltip::waitTimeInMS {puts [Tooltip::show]}]
+}
+proc Tooltip::onLeave {} {
+	after cancel $Tooltip::lastAfterId
+	set Tooltip::lastAfterId {}
+	place forget $Tooltip::wPath
+	#puts [list Tooltip::onLeave]
+}
+namespace eval Tools {
+	variable wPath [frame	$Draw::wPath.fTools -borderwidth 2 -relief groove]
+	pack $wPath -side left -fill y -before $Draw::wPath.cC
+	pack [label 			$wPath.lL -text Tools]
+	pack [ttk::separator	$wPath.sLine0 -orient horizontal] -fill x -pady [list 0 0.25c]
+	pack [button			$wPath.bB1 -text $Icon::Unicode::HorizontalLines -command HLines::new -relief flat -overrelief groove] -fill x
+	Tooltip::new $wPath.bB1 {Guiding Horizontal Lines} {}
+}
 namespace eval Properties {
+	variable wPath $SecondFrame::wPath.fProperties
+	frame $wPath
 	# parent
-	pack [frame		.pwPane.lfCanvas.fF -borderwidth 2 -relief groove] -side right -fill y -after .pwPane.lfCanvas.sbV
+	#pack [frame		$wPath -borderwidth 2 -relief groove] -side right -fill y -after $Draw::wPath.sbV
 	# Title & Separator
-	pack [label		.pwPane.lfCanvas.fF.lBanner -text Properties] 						-side top -fill x -pady [list 0 0.25c]
-	pack [ttk::separator		.pwPane.lfCanvas.fF.ttkspLine -orient horizontal] 		-side top -fill x
+	pack [label		$wPath.lBanner -text Properties] 						-side top -fill x -pady [list 0 0.25c]
+	pack [ttk::separator		$wPath.ttkspLine -orient horizontal] 		-side top -fill x
 	# A New Frame for Object's Info; Name and Type -> universal
-	pack [frame 			.pwPane.lfCanvas.fF.fInfo]									-side top -fill x
-	grid [label		.pwPane.lfCanvas.fF.fInfo.lLabelName -text {Object's Name}] 		-row 0 -column 0 -sticky w
-	grid [label		.pwPane.lfCanvas.fF.fInfo.lName -text {}] 							-row 0 -column 1 -sticky e
-	grid [label		.pwPane.lfCanvas.fF.fInfo.lLabelType -text {Object's Type}] 		-row 1 -column 0 -sticky w
-	grid [label		.pwPane.lfCanvas.fF.fInfo.lType -text {}] 							-row 1 -column 1 -sticky e
+	pack [frame 			$wPath.fInfo]									-side top -fill x
+	grid [label		$wPath.fInfo.lLabelName -text {Object's Name}] 		-row 0 -column 0 -sticky w
+	grid [label		$wPath.fInfo.lName -text {}] 							-row 0 -column 1 -sticky e
+	grid [label		$wPath.fInfo.lLabelType -text {Object's Type}] 		-row 1 -column 0 -sticky w
+	grid [label		$wPath.fInfo.lType -text {}] 							-row 1 -column 1 -sticky e
 	# Other Properties. to be added later.
 	
 	
 }
 proc Properties::map [list realId namespaceName] {
-	.pwPane.lfCanvas.fF.fInfo.lName config -text $realId
-	.pwPane.lfCanvas.fF.fInfo.lType config -text $namespaceName
+	$Properties::wPath.fInfo.lName config -text $realId
+	$Properties::wPath.fInfo.lType config -text $namespaceName
 	upvar 1 "${namespaceName}::supported" supported
-	set all [lrange [winfo children .pwPane.lfCanvas.fF.fInfo ] 2 end]
+	set all [lrange [winfo children $Properties::wPath.fInfo ] 2 end]
 	grid forget {*}$all
 	set count 2
 	puts [list supported -> $supported]
 	foreach e $supported {
 		puts [list e -> $e]
-		if ![winfo exists .pwPane.lfCanvas.fF.fInfo.lLabel$e] {
+		if ![winfo exists $Properties::wPath.fInfo.lLabel$e] {
 			puts NotFound
-			label .pwPane.lfCanvas.fF.fInfo.lLabel$e -text "Object's $e"
-			label .pwPane.lfCanvas.fF.fInfo.l$e -text {}
+			label $Properties::wPath.fInfo.lLabel$e -text "Object's $e"
+			label $Properties::wPath.fInfo.l$e -text {}
 		}
-		.pwPane.lfCanvas.fF.fInfo.l$e config -text [${namespaceName}::$e $realId]
-		grid .pwPane.lfCanvas.fF.fInfo.l$e  		-row $count -column 1 -sticky e
-		grid .pwPane.lfCanvas.fF.fInfo.lLabel$e 	-row $count -column 0 -sticky w
+		$Properties::wPath.fInfo.l$e config -text [${namespaceName}::$e $realId]
+		grid $Properties::wPath.fInfo.l$e  		-row $count -column 1 -sticky e
+		grid $Properties::wPath.fInfo.lLabel$e 	-row $count -column 0 -sticky w
 		incr count
 	}
 	
 }
 namespace eval Sequence {
-	frame	.pwPane.lfCanvas.fSequence 	-borderwidth 2 -relief groove
-	pack .pwPane.lfCanvas.fSequence -side right -fill y -after .pwPane.lfCanvas.sbV
-	pack [frame 	.pwPane.lfCanvas.fSequence.fBanner] -fill x
-	pack [frame 	.pwPane.lfCanvas.fSequence.fRest] -fill both
-	grid [label	.pwPane.lfCanvas.fSequence.fBanner.lLTitle -text {Objects Order}] 					-row 0 -column 0 -columnspan 3 -sticky we
-	grid [ttk::separator		.pwPane.lfCanvas.fSequence.fBanner.ttspLine -orient horizontal]		-row 1 -column 0 -columnspan 3 -sticky we -pady [list 0 0.25c]
+	variable wPath $SecondFrame::wPath.fSequence 
+	frame	$wPath 	-borderwidth 2 -relief groove
+	#pack $wPath -side right -fill y -after $Draw::wPath.sbV
+	pack [frame 	$wPath.fBanner] -fill x
+	pack [frame 	$wPath.fRest] -fill both
+	grid [label	$wPath.fBanner.lLTitle -text {Objects Order}] 					-row 0 -column 0 -columnspan 3 -sticky we
+	grid [ttk::separator		$wPath.fBanner.ttspLine -orient horizontal]		-row 1 -column 0 -columnspan 3 -sticky we -pady [list 0 0.25c]
 	# order -> order in object class' (objects dict) ; ;
 	variable objects [dict create] types [dict create] count 0
 	#
@@ -1066,13 +1141,13 @@ proc Sequence::add [list realId namespaceName] {
 	dict set Sequence::types $realId $namespaceName
 	incr Sequence::count
 	set Ls [list \
-			.pwPane.lfCanvas.fSequence.fRest.lCount$Sequence::count \
-			.pwPane.lfCanvas.fSequence.fRest.lType$Sequence::count \
-			.pwPane.lfCanvas.fSequence.fRest.lRealId$Sequence::count ]
+			$Sequence::wPath.fRest.lCount$Sequence::count \
+			$Sequence::wPath.fRest.lType$Sequence::count \
+			$Sequence::wPath.fRest.lRealId$Sequence::count ]
 	grid	[label [lindex $Ls 0] -text $Sequence::count] 									-row $Sequence::count -column 0
-	grid	[ttk::separator .pwPane.lfCanvas.fSequence.fRest.ttkspLine${Sequence::count}1	-orient vertical ] -sticky ns 			-row $Sequence::count -column 1
+	grid	[ttk::separator $Sequence::wPath.fRest.ttkspLine${Sequence::count}1	-orient vertical ] -sticky ns 			-row $Sequence::count -column 1
 	grid	[label [lindex $Ls 1] -text [set ${namespaceName}::abbreaviatedName]]  					-row $Sequence::count -column 2
-	grid	[ttk::separator .pwPane.lfCanvas.fSequence.fRest.ttkspLine${Sequence::count}3	-orient vertical ] -sticky ns			-row $Sequence::count -column 3
+	grid	[ttk::separator $Sequence::wPath.fRest.ttkspLine${Sequence::count}3	-orient vertical ] -sticky ns			-row $Sequence::count -column 3
 	grid	[label [lindex $Ls 2] -text "$namespaceName Object #$realId"] 							-row $Sequence::count -column 4
 	
 	set command [join [list {*}[lmap i $Ls {concat "$i config -state active"}] "Properties::map $realId $namespaceName"] {; }]
@@ -1097,7 +1172,7 @@ proc HLines::new [list [list x {}] [list y {}]] {
 	# 1 line less
 	set start [expr {int($Draw::fHeight + $Draw::cY)}]
 	while {[incr count] < $howMany} {
-		lappend objects [.pwPane.lfCanvas.cC create line $x $start $Draw::cW $start -dash .]
+		lappend objects [$Draw::wPath.cC create line $x $start $Draw::cW $start -dash .]
 		incr start $Draw::fHeight
 	}
 	dict set HLines::objects	$HLines::count $objects
@@ -1121,32 +1196,37 @@ proc HLines::Y id {
 	return [dict get $HLines::Y $id]
 }
 
-namespace eval Mobility {
+namespace eval Resize {
 
 }
-proc main { } {
-	
-	
-	
-	
-	
-	#create and Enview (cause it to be visible) Top strip/Toolbar
-	#NorthBar::create
-	
-	
+proc Util::makeResizingBanner [list parentPath label ] {
+	set wPath $parentPath.fResize
+	frame 			$wPath -relief flat
+	button 			$wPath.fbB1 -cursor sb_h_double_arrow -text $Icon::Unicode::DoubleHeadedArrow -relief flat
+	ttk::separator 	$wPath.ttkspLine1 -orient vertical
+	button 			$wPath.fbB2 -cursor sb_h_double_arrow -text $Icon::Unicode::DoubleHeadedArrow -relief flat
+	label 			$wPath.lL -text $label
+	ttk::separator 	$wPath.ttkspLine2 -orient vertical
+	button 			$wPath.fbB3 -cursor sb_h_double_arrow -text $Icon::Unicode::NewWindow -relief flat
+	grid 	$wPath.fbB1 			-row 0 -column 0 -sticky e
+	grid 	$wPath.ttkspLine1 	-row 0 -column 1 -sticky e
+	grid	$wPath.fbB2			-row 0 -column 2 -sticky e
+	grid	$wPath.fblL			-row 0 -column 3 -sticky we
+	grid	$wPath.ttkspLine2	-row 0 -column 4 -sticky e
+	grid	$wPath.fbB3			-row 0 -column 5 -sticky e
+		
+	return $wPath
+}
+proc doLast {} {
 	#create Menu Buttons/Blocks
 	Toolbar::createMenuButtons
 	
 	#create the Menu Buttons switch button
 	Toolbar::createSwitchMenusButton
 	
-	#Test
-	#NorthBar::new_button {} -type dart -text {Save as PDF} -command {puts [list -> %x %y]} -options [list {Use the built-in File lister} {Use the OS' native File explorer}] -default 1 pack -pady 1
 	#fDart1 bc it's a frame
-	Toolbar::newPayload .fToolbar.fDart1 -Type DartButton::new -text {Save as PDF} -Options [list {Use the built-in File lister} {Use the OS' native File explorer}] -DefaultIndex 1 -variable ::DartButton::varSaveMenu pack -pady 3 -padx 5
-	.fToolbar.fDart1.b1 configure -command {
-		[lindex [list CustomSave::show tk_getSaveFile] $DartButton::varSaveMenu]
-	}
+	Toolbar::newPayload $Toolbar::wPath.fDart1 -Type DartButton::new -command {[lindex [list CustomSave::show tk_getSaveFile] $DartButton::varSaveMenu]} -text {Save as PDF} -Options [list {Use the built-in File lister} {Use the OS' native File explorer}] -DefaultOption 1 -variable ::DartButton::varSaveMenu pack -pady 3 -padx 5
+	
 	
 	#enview a [label frame] and rest
 	Files::configure
@@ -1164,10 +1244,7 @@ proc main { } {
 	
 	CustomSave::configure
 	
-	# order of panes
-	.pwPane paneconfigure  .pwPane.lfCanvas -after  .pwPane.lfFiles
-	.pwPane paneconfigure .pwPane.lfTabs -after .pwPane.lfCanvas
 }
 
 
-main
+doLast
