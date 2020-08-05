@@ -71,7 +71,7 @@ namespace eval Icon {
 		Copyright			"\u00a9" \
 		DoubleHeadedArrow	"\u2194" \
 		NewWindow			"\ud83d\uddd7" \
-		HorizontalLines		"\u25a4"
+		HorizontalLines		"\u25a4" \
 	}
 }
 namespace eval Util {
@@ -782,18 +782,22 @@ namespace eval Menu::DocPage {
 }
 namespace eval Toolbar {
 
-	variable wPath .fToolbar \
-	borderWidth 0
+	variable borderWidth 0
+	; # widget path ; to keep track ; its count ; Indicies of Menu buttons in $children ; visiblility? 0/No => Menu Bar is Visible, 1/yes => Menu Buttons are visible ; pack LtR or RtL
+	variable wPath  [frame		.fToolbar -borderwidth $Toolbar::borderWidth -relief flat -background lightblue] children [dict create]  childrenCount 0  menuButtons [list]  areMenuButtonsVisible {No} packSide {left} menuButtonChildren [dict create] menuButtonChildrenCount 0 wPath2 [panedwindow .pwPnae2 -background green]
 	
-	frame		$Toolbar::wPath -borderwidth $Toolbar::borderWidth -relief flat -background lightblue
-	pack 		$Toolbar::wPath -side top -expand 0 -fill none
 	
-	# Left to right, direction of laying elements.
-	#set direction left
-	
-	# to keep track ; its count ; Indicies of Menu buttons in $children ; visiblility? 0/No => Menu Bar is Visible, 1/yes => Menu Buttons are visible ; pack LtR or RtL
-	variable children [dict create]  childrenCount 0  menuButtons [list]  areMenuButtonsVisible {No} packSide {left} menuButtonChildren [dict create] menuButtonChildrenCount 0
-	
+	pack 		$wPath -side top -expand 0 -fill none
+	pack 		$wPath2 -side top -expand 1 -fill x -after $wPath
+	proc wPath2Config {} {
+		Toolbar::newPayload $Toolbar::wPath2.bB0 -Type button -text {} 	grid -row 0 -column 0 -sticky we
+		Toolbar::newPayload $Toolbar::wPath2.bB1 -Type button -text 1 	grid -row 0 -column 1 -sticky we
+		Toolbar::newPayload $Toolbar::wPath2.bB2 -Type button -text 2	grid -row 0 -column 2 -sticky we
+		Toolbar::newPayload $Toolbar::wPath2.bB3 -Type button -text 3	grid -row 0 -column 3 -sticky we
+		Toolbar::newPayload $Toolbar::wPath2.bB4 -Type button -text 4   grid -row 0 -column 4 -sticky we
+		grid columnconfigure $Toolbar::wPath2 all -weight 1 -minsize 0 -uniform 1
+		grid columnconfigure $Toolbar::wPath2 0 -weight 1 -minsize 0 -uniform 2
+	}
 	proc newPayload [list pathName args] {
 		# set the option argument of -Type and remove them from $args
 		Util::injectVariablesAndRemoveSwitchesFromAList args -Type -WithSeparator ;#puts [list Vars => [info vars] Type -> $Type Args -> $args] ; if {$Type eq {}} {puts empty}
@@ -826,7 +830,12 @@ namespace eval Toolbar {
 					}
 				}
 			grid -
-			place { throw [list TK UNSUPPORTED UNSUPPORTED_GEOMETRY_MANAGER] [list Only pack GM currently is supported] }
+			place { 
+				if {$WithSeparator == 1} {
+					throw [list TK UNSUPPORTED UNSUPPORTED_OPTION] [list -WithSeparator Option is not suppoerted in grid/place commands.]
+				}
+				{*}[linsert $Geom 1 $pathName] 
+			}
 		}
 		return $pathName
 	} ; # End newPayload
@@ -1225,6 +1234,7 @@ proc doLast {} {
 	CustomSave::configure
 	grid columnconfigure $SecondFrame::wPath all -weight 1 -minsize 0 -uniform 1
 	.pwPane add $SecondFrame::wPath -sticky nswe
+	Toolbar::wPath2Config
 }
 
 
