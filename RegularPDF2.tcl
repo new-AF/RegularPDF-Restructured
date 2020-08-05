@@ -49,8 +49,7 @@ namespace eval MainPane {
 
 }
 namespace eval SecondFrame {
-	variable wPath $MainPane::wPath.fSecond
-	frame $SecondFrame::wPath
+	variable wPath [frame $MainPane::wPath.fSecond]
 }
 namespace eval Icon {
 	namespace eval Unicode {
@@ -384,9 +383,10 @@ proc About::show {} {
 	Util::showToplevel $About::wPath
 }
 namespace eval Files {
-	variable wPath $SecondFrame::wPath.lfFiles
 	# aesthetic properties
 	variable lfRelief ridge toolbarPad 10 highThickness 2 highColor yellow borderWidth 10 frameBorderWidth 5 parentBg [.pwPane cget -background]
+	
+	variable wPath [ frame 	$SecondFrame::wPath.lfFiles  -relief $Files::lfRelief -borderwidth $Files::frameBorderWidth ]
 	
 	#Icons listbox -textvariable											
 	variable Lvar
@@ -402,10 +402,6 @@ namespace eval Files {
 	
 	# (>dirLimit) - files start
 	variable dirLimit
-	
-	## Construction ##
-	# the frame
-	frame 	$wPath  -relief $Files::lfRelief -borderwidth $Files::frameBorderWidth
 	
 	# left listbox for Icons
 	listbox		$wPath.lbL		-relief flat -highlightthickness 2 -highlightcolor blue  -background $Files::parentBg -cursor hand2 -activestyle none -selectmode single -listvar Files::Lvar -justify center -width -1 -selectforeground {} -selectbackground $Files::parentBg
@@ -629,9 +625,7 @@ namespace eval NorthBar {}
 
 
 proc Files::configure {args} {
-	
-	
-	
+	pack $Files::wPath -expand 1 -fill both
 	# ... Button Post Menu
 	$Files::wPath.fToolbar.bDots configure -command [list Menu::post $Files::wPath.fToolbar.bDots $Files::wPath.mDots]
 	$Files::wPath.mDots add command -label "$Icon::Unicode::UpBoldArrow Bring Up Toolbar"
@@ -951,10 +945,8 @@ proc Toolbar::switchMenus w {
 		}
 }
 namespace eval Tabs {
-	variable wPath $SecondFrame::wPath.lfTabs
-	## Construction ##
-	labelframe	$wPath	-borderwidth 5	-relief groove
-	# banner
+	variable wPath [labelframe	$SecondFrame::wPath.lfTabs	-borderwidth 5	-relief groove]
+	pack $wPath -side right -expand 1 -fill y
 	
 		label				$wPath.lBanner -text {Current Tabs}
 		ttk::separator		$wPath.ttkspLine -orient horizontal
@@ -1029,66 +1021,65 @@ namespace eval Tooltip  {
 	variable wPath [frame .fTooltip -background $pBG -highlightcolor black -highlightthickness 1] \
 	title	[dict create] \
 	text	[dict create] \
-	active No \
-	waitTimeInMS 500
+	waitTimeInMS 900
 	variable x
 	variable y
 	variable showTitle
 	variable showText
 	variable lastAfterId {}
 	pack [label $wPath.lUp -bg $pBG] [label $wPath.lDown -bg $pBG -wraplength [font measure TkDefaultFont -displayof $Tooltip::wPath.lUp {Horizontal Guiding Lines}]] -side top
-}
-proc Tooltip::new [list on title text ] {
-	dict set Tooltip::title $on $title
-	dict set Tooltip::text $on $text
-	bind $on <Motion> "Tooltip::onMotion %W" ;
-	bind $on <Enter> "Tooltip::onEnter $on" ; # %x %y with <Enter> USELESS
-	bind $on <Leave> "Tooltip::onLeave"
+
+	proc new [list on title text ] {
+		dict set Tooltip::title $on $title
+		dict set Tooltip::text $on $text
+		bind $on <Motion> {Tooltip::onMotion %W} ;
+		bind $on <Enter> "Tooltip::onEnter $on" ; # %x %y with <Enter> USELESS
+		bind $on <Leave> Tooltip::onLeave
+		$on config -command [string cat [$on cget -command] {; after cancel $Tooltip::lastAfterId}]
+	} ; # End new
+
+	proc show {} {
+		#puts [list -> [place configure $Tooltip::wPath -x $Tooltip::x -y $Tooltip::y ] [focus $Tooltip::wPath]  [winfo width $Tooltip::wPath.lUp] => [info vars]]
+		place configure $Tooltip::wPath -x $Tooltip::x -y $Tooltip::y
+		focus $Tooltip::wPath
+		$Tooltip::wPath.lUp config -text $Tooltip::showTitle
+		$Tooltip::wPath.lDown config -text $Tooltip::showText 
+	} ; # End show
+
+	proc onMotion [list w] {
+		#set Tooltip::x [expr {[winfo pointerx .] - [winfo rootx .]}] ; Tooltip::x [winfo x $w] ; puts [list $Tooltip::x $Tooltip::y]
+		set Tooltip::x [winfo width [winfo parent $w]]
+		set Tooltip::y [expr {[winfo pointery .] - [winfo rooty .]}]
+	} ; # End onMotion
 	
-	#bind $on <Motion> {lassign [list %x %y %X %Y] x y rx ry 
-	#incr x [winfo x %W] ; incr y [winfo y %W]
-	#incr x [winfo x [winfo parent %W]] ; incr y [winfo y [winfo parent %W]]
-	#puts [list $x $y $rx $ry [expr { [winfo rooty %W] - [winfo pointery %W] - [winfo rooty .]}]  [expr {[winfo pointery .] - [winfo rooty .]}] ]
-	#}
-}
-proc Tooltip::show {} {
-	puts [list -> [place configure $Tooltip::wPath -x $Tooltip::x -y $Tooltip::y ] [focus $Tooltip::wPath]  [winfo width $Tooltip::wPath.lUp] => [info vars]]
-	$Tooltip::wPath.lUp config -text $Tooltip::showTitle
-	$Tooltip::wPath.lDown config -text $Tooltip::showText 
-	puts [list ShouldShow $Tooltip::x $Tooltip::y $Tooltip::wPath]
+	proc onEnter [list on ] {
+		if {$Tooltip::lastAfterId ne {}} {after cancel $Tooltip::lastAfterId}
+		set Tooltip::showTitle		[dict get $Tooltip::title $on]
+		set Tooltip::showText		[dict get $Tooltip::text $on]
+		set Tooltip::lastAfterId	[after $Tooltip::waitTimeInMS {puts [Tooltip::show]}]
+	} ; # End onEnter
 	
+	proc onLeave {} {
+		after cancel $Tooltip::lastAfterId
+		set Tooltip::lastAfterId {}
+		place forget $Tooltip::wPath
+	} ; # End onLeave
 }
-proc Tooltip::onMotion [list w] {
-	#set Tooltip::x [expr {[winfo pointerx .] - [winfo rootx .]}] ; Tooltip::x [winfo x $w]
-	set Tooltip::x [winfo width [winfo parent $w]]
-	set Tooltip::y [expr {[winfo pointery .] - [winfo rooty .]}]
-	#puts [list $Tooltip::x $Tooltip::y]
-}
-proc Tooltip::onEnter [list on ] {
-	if {$Tooltip::lastAfterId ne {}} {after cancel $Tooltip::lastAfterId}
-	set Tooltip::showTitle		[dict get $Tooltip::title $on]
-	set Tooltip::showText		[dict get $Tooltip::text $on]
-	set Tooltip::lastAfterId	[after $Tooltip::waitTimeInMS {puts [Tooltip::show]}]
-}
-proc Tooltip::onLeave {} {
-	after cancel $Tooltip::lastAfterId
-	set Tooltip::lastAfterId {}
-	place forget $Tooltip::wPath
-	#puts [list Tooltip::onLeave]
-}
+
+
+
 namespace eval Tools {
 	variable wPath [frame	$Draw::wPath.fTools -borderwidth 2 -relief groove]
 	pack $wPath -side left -fill y -before $Draw::wPath.cC
 	pack [label 			$wPath.lL -text Tools]
-	pack [ttk::separator	$wPath.sLine0 -orient horizontal] -fill x -pady [list 0 0.25c]
-	pack [button			$wPath.bB1 -text $Icon::Unicode::HorizontalLines -command HLines::new -relief flat -overrelief groove] -fill x
-	Tooltip::new $wPath.bB1 {Guiding Horizontal Lines} {The horizontal lines portion of a grid that facilitate writing text onto multiple lines.}
+	pack [ttk::separator	$wPath.sLine0 -orient horizontal] -fill x
+	pack [button			$wPath.bB1 -text $Icon::Unicode::HorizontalLines -command {HLines::new}  -relief flat -overrelief groove] -fill x
+	Tooltip::new $wPath.bB1 {Guiding Horizontal Lines} {A grid's horizontal lines which facilitate writing text onto multiple lines.}
 }
 namespace eval Properties {
-	variable wPath $SecondFrame::wPath.fProperties
-	frame $wPath
+	variable wPath [frame $SecondFrame::wPath.fProperties -borderwidth 2 -relief groove]
 	# parent
-	#pack [frame		$wPath -borderwidth 2 -relief groove] -side right -fill y -after $Draw::wPath.sbV
+	pack $wPath -side right -fill y
 	# Title & Separator
 	pack [label		$wPath.lBanner -text Properties] 						-side top -fill x -pady [list 0 0.25c]
 	pack [ttk::separator		$wPath.ttkspLine -orient horizontal] 		-side top -fill x
@@ -1125,9 +1116,8 @@ proc Properties::map [list realId namespaceName] {
 	
 }
 namespace eval Sequence {
-	variable wPath $SecondFrame::wPath.fSequence 
-	frame	$wPath 	-borderwidth 2 -relief groove
-	#pack $wPath -side right -fill y -after $Draw::wPath.sbV
+	variable wPath [frame $SecondFrame::wPath.fSequence -borderwidth 2 -relief groove]
+	pack $wPath -side right -fill y
 	pack [frame 	$wPath.fBanner] -fill x
 	pack [frame 	$wPath.fRest] -fill both
 	grid [label	$wPath.fBanner.lLTitle -text {Objects Order}] 					-row 0 -column 0 -columnspan 3 -sticky we
@@ -1244,7 +1234,7 @@ proc doLast {} {
 	
 	
 	CustomSave::configure
-	
+	.pwPane add $SecondFrame::wPath
 }
 
 
