@@ -1025,8 +1025,8 @@ namespace eval Draw {
 }
 
 namespace eval Tooltip  {
-	variable pBG {yellow} 
-	variable wPath [frame .fTooltip -background $pBG -highlightcolor black] \
+	variable pBG {light yellow} 
+	variable wPath [frame .fTooltip -background $pBG -highlightcolor black -highlightthickness 1] \
 	title	[dict create] \
 	text	[dict create] \
 	active No \
@@ -1036,7 +1036,7 @@ namespace eval Tooltip  {
 	variable showTitle
 	variable showText
 	variable lastAfterId {}
-	pack [label $wPath.lUp -bg $pBG] [label $wPath.lDown -bg $pBG] -side top
+	pack [label $wPath.lUp -bg $pBG] [label $wPath.lDown -bg $pBG -wraplength [font measure TkDefaultFont -displayof $Tooltip::wPath.lUp {Horizontal Guiding Lines}]] -side top
 }
 proc Tooltip::new [list on title text ] {
 	dict set Tooltip::title $on $title
@@ -1052,10 +1052,11 @@ proc Tooltip::new [list on title text ] {
 	#}
 }
 proc Tooltip::show {} {
-	puts [list -> [place configure $Tooltip::wPath -x $Tooltip::x -y $Tooltip::y ] => [info vars]]
+	puts [list -> [place configure $Tooltip::wPath -x $Tooltip::x -y $Tooltip::y ] [focus $Tooltip::wPath]  [winfo width $Tooltip::wPath.lUp] => [info vars]]
 	$Tooltip::wPath.lUp config -text $Tooltip::showTitle
-	$Tooltip::wPath.lDown config -text $Tooltip::showText
+	$Tooltip::wPath.lDown config -text $Tooltip::showText 
 	puts [list ShouldShow $Tooltip::x $Tooltip::y $Tooltip::wPath]
+	
 }
 proc Tooltip::onMotion [list w] {
 	#set Tooltip::x [expr {[winfo pointerx .] - [winfo rootx .]}] ; Tooltip::x [winfo x $w]
@@ -1081,7 +1082,7 @@ namespace eval Tools {
 	pack [label 			$wPath.lL -text Tools]
 	pack [ttk::separator	$wPath.sLine0 -orient horizontal] -fill x -pady [list 0 0.25c]
 	pack [button			$wPath.bB1 -text $Icon::Unicode::HorizontalLines -command HLines::new -relief flat -overrelief groove] -fill x
-	Tooltip::new $wPath.bB1 {Guiding Horizontal Lines} {}
+	Tooltip::new $wPath.bB1 {Guiding Horizontal Lines} {The horizontal lines portion of a grid that facilitate writing text onto multiple lines.}
 }
 namespace eval Properties {
 	variable wPath $SecondFrame::wPath.fProperties
