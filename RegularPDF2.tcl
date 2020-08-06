@@ -273,12 +273,16 @@ namespace eval Util {
 		}
 		set $listName $rest
 	}
+
+	proc bindOnce [list on eventType what] {
+		bind $on <$eventType> " $what ; bind $on <$eventType> {} "
+	}
 } ; # End of namespace
 namespace eval ReliefButton {
-	variable on sunken off flat
+	variable on sunken off groove
 	proc new [list path args] {
 		Util::injectVariablesAndRemoveSwitchesFromAList args -Status -command -WhenOn -WhenOff ; set Status [string tolower $Status]
-		set path [button $path {*}$args -relief [if {$Status in [list on off]} {set ReliefButton::$Status} else {concat $ReliefButton::off} ] -command [string cat $command "; ReliefButton::switch $path"] ]
+		set path [button $path {*}$args -borderwidth 3 -relief [if {$Status in [list on off]} {set ReliefButton::$Status} else {concat $ReliefButton::off} ] -command [string cat $command "; ReliefButton::switch $path"] ]
 		if {$WhenOn ne {}}  {
 			$path config -command [string cat [$path cget -command] "; if \[ReliefButton::isOn $path\] {$WhenOn}"]
 			#puts [list final command =[$path cget -command]=]
@@ -1148,12 +1152,12 @@ namespace eval Tools {
 }
 namespace eval Properties {
 	variable wPath [frame $SecondFrame::wPath.fProperties -borderwidth 2 -relief groove]
-	# parent
 	#place $wPath -relx 0.5 -y 0 -relwidth 0.25 -relheight 1
 	grid $wPath -row 0 -column 2 -sticky nswe
 	# Title & Separator
-	pack [label		$wPath.lBanner -text Properties] 						-side top -fill x -pady [list 0 0.25c]
-	pack [ttk::separator		$wPath.ttkspLine -orient horizontal] 		-side top -fill x
+	pack [label		$wPath.lBanner -text Properties] 						-side top -fill x
+	pack [ttk::separator		$wPath.ttkspLine -orient horizontal] 		-side top -fill x -pady [list 0 0.25c]
+	label $wPath.lClear -text {No Object is currently selected}
 	# A New Frame for Object's Info; Name and Type -> universal
 	pack [frame 			$wPath.fInfo]									-side top -fill x
 	grid [label		$wPath.fInfo.lLabelName -text {Object's Name}] 		-row 0 -column 0 -sticky w
@@ -1184,7 +1188,16 @@ namespace eval Properties {
 		}
 		
 	}
-
+	proc clear {} {
+		$Properties::wPath.lClear config -wraplength [winfo width $Properties::wPath]
+		$Properties::wPath.lClear config -state disabled
+		grid remove {*}[grid slaves $Properties::wPath.fInfo]
+		pack forget $Properties::wPath.fInfo
+		pack $Properties::wPath.lClear -fill none -expand 1
+		#Properties::clear
+	}
+	
+	Util::bindOnce $Properties::wPath.fInfo Map {Properties::clear}
 }
 namespace eval Sequence {
 	variable wPath [frame $SecondFrame::wPath.fSequence -borderwidth 2 -relief groove]
@@ -1192,8 +1205,8 @@ namespace eval Sequence {
 	grid $wPath -row 0 -column 1 -sticky nswe
 	pack [frame 	$wPath.fBanner] -fill x
 	pack [frame 	$wPath.fRest] -fill both
-	grid [label	$wPath.fBanner.lLTitle -text {Objects Order}] 					-row 0 -column 0 -columnspan 3 -sticky we
-	grid [ttk::separator		$wPath.fBanner.ttspLine -orient horizontal]		-row 1 -column 0 -columnspan 3 -sticky we -pady [list 0 0.25c]
+	pack [label	$wPath.fBanner.lLTitle -text {Objects Sequence}] -fill x -expand 1
+	pack [ttk::separator		$wPath.fBanner.ttspLine -orient horizontal] -fill x -pady [list 0 0.25c]
 	# order -> order in object class' (objects dict) ; ;
 	variable objects [dict create] types [dict create] count 0
 	#
@@ -1286,6 +1299,7 @@ proc doLast {} {
 		  -rootx [winfo rootx .pwPane] -rooty [winfo rooty .pwPane] \
 		  -vrootx [winfo vrootx .pwPane] -vrooty [winfo vrooty .pwPane]]
 	
+	puts [list ** [winfo width $Properties::wPath] [winfo reqwidth $Properties::wPath] ]
 	
 	CustomSave::configure
 	grid columnconfigure $SecondFrame::wPath all -weight 1 -minsize 0 -uniform 1
