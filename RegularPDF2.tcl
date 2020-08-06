@@ -72,6 +72,7 @@ namespace eval Icon {
 		DoubleHeadedArrow	"\u2194" \
 		NewWindow			"\ud83d\uddd7" \
 		HorizontalLines		"\u25a4" \
+		Check				"\u2713"
 	}
 }
 namespace eval Util {
@@ -243,8 +244,60 @@ namespace eval Util {
 		#wm attributes .tlAbout -topmost 1
 	}
 
-} ; # End of namespace
+	proc injectVariablesAndRemoveSwitchesFromAList2 {listName args} {
+		
+		upvar $listName lst
+		set want $args
+		set toReturn [dict create]
+		set rest [list]
 
+		#puts [list newlst -> $lst want -> $want]
+		for {set len [llength $lst] ; set i 0} {$i < $len} {} {
+		
+			if {[set e [lindex $lst $i]] in $want} {
+			
+				if {[set got [lsearch -exact $lst $e]] != {-1} && [set got [lindex $lst $got+1]] ne {} && [string index $got 0] ne {-}} {dict set toReturn [string range $e 1 end] $got} else {dict set toReturn [string range $e 1 end] No}
+				
+				puts [list e -> $e got -> $got]
+				incr i 2
+			} else {
+				lappend rest $e
+				incr i 1
+			}
+			
+		}
+		puts [list REST -> $rest]
+		dict for {k v} $toReturn {
+			puts [list Upleveling Key $k Value $v]
+			uplevel 1 "set $k {$v}"
+		}
+		set $listName $rest
+	}
+} ; # End of namespace
+namespace eval ReliefButton {
+	variable on sunken off flat
+	proc new [list path args] {
+		Util::injectVariablesAndRemoveSwitchesFromAList args -Status -command -WhenOn -WhenOff ; set Status [string tolower $Status]
+		set path [button $path {*}$args -relief [if {$Status in [list on off]} {set ReliefButton::$Status} else {concat $ReliefButton::off} ] -command [string cat $command "; ReliefButton::switch $path"] ]
+		if {$WhenOn ne {}}  {
+			$path config -command [string cat [$path cget -command] "; if \[ReliefButton::isOn $path\] {$WhenOn}"]
+			#puts [list final command =[$path cget -command]=]
+		}
+		if {$WhenOff ne {}} {
+			$path config -command [string cat [$path cget -command] "; if !\[ReliefButton::isOn $path\] {$WhenOff}"]
+			#puts [list final command =[$path cget -command]=]
+		}
+		return $path
+	}
+	proc isOn path {
+		return [expr {[$path cget -relief] eq $ReliefButton::on}]
+	}
+	proc switch path {
+		$path config -relief [lindex [list $ReliefButton::on $ReliefButton::off] [set bool [ReliefButton::isOn $path]]]
+		set text [$path cget -text]
+		$path config -text [lindex [list [concat $Icon::Unicode::Check $text] [lrange $text 1 end]] $bool]  
+	}
+}
 namespace eval CustomSave {
 	variable name
 	variable extension
@@ -784,19 +837,22 @@ namespace eval Toolbar {
 
 	variable borderWidth 0
 	; # widget path ; to keep track ; its count ; Indicies of Menu buttons in $children ; visiblility? 0/No => Menu Bar is Visible, 1/yes => Menu Buttons are visible ; pack LtR or RtL
-	variable wPath  [frame		.fToolbar -borderwidth $Toolbar::borderWidth -relief flat -background lightblue] children [dict create]  childrenCount 0  menuButtons [list]  areMenuButtonsVisible {No} packSide {left} menuButtonChildren [dict create] menuButtonChildrenCount 0 wPath2 [panedwindow .pwPnae2 -background green]
-	
+	variable wPath  [frame		.fToolbar -borderwidth $Toolbar::borderWidth -relief flat -background lightblue] children [dict create]  childrenCount 0  menuButtons [list]  areMenuButtonsVisible {No} packSide {left} menuButtonChildren [dict create] menuButtonChildrenCount 0 wPath2 [panedwindow .pwPnae2 -background green -sashpad 0 -sashwidth 0]
+	variable f [frame $wPath2.fF]
 	
 	pack 		$wPath -side top -expand 0 -fill none
 	pack 		$wPath2 -side top -expand 1 -fill x -after $wPath
 	proc wPath2Config {} {
-		Toolbar::newPayload $Toolbar::wPath2.bB0 -Type button -text {} 	grid -row 0 -column 0 -sticky we
-		Toolbar::newPayload $Toolbar::wPath2.bB1 -Type button -text 1 	grid -row 0 -column 1 -sticky we
-		Toolbar::newPayload $Toolbar::wPath2.bB2 -Type button -text 2	grid -row 0 -column 2 -sticky we
-		Toolbar::newPayload $Toolbar::wPath2.bB3 -Type button -text 3	grid -row 0 -column 3 -sticky we
-		Toolbar::newPayload $Toolbar::wPath2.bB4 -Type button -text 4   grid -row 0 -column 4 -sticky we
-		grid columnconfigure $Toolbar::wPath2 all -weight 1 -minsize 0 -uniform 1
-		grid columnconfigure $Toolbar::wPath2 0 -weight 1 -minsize 0 -uniform 2
+		$Toolbar::wPath2 add [label $Toolbar::wPath2.l -text 0]
+		foreach i [list 1 2 3 4] {
+			grid [Toolbar::newPayload $Toolbar::f.bB$i -Type ReliefButton::new -text $i -relief groove] -row 0 -column $i -sticky nswe
+		}
+		
+		grid columnconfigure $Toolbar::f all -weight 1 -minsize 0 -uniform 1
+		$Toolbar::wPath2 add $Toolbar::f
+		bind .pwPane <B1-Motion> {
+			lassign [.pwPane sash coord 0] x y
+			$Toolbar::wPath2 sash place 0 [incr x 30] $y}
 	}
 	proc newPayload [list pathName args] {
 		# set the option argument of -Type and remove them from $args
@@ -808,7 +864,7 @@ namespace eval Toolbar {
 		#++childrenCount
 		incr Toolbar::childrenCount
 		
-		lassign [Util::splitOnWord args [list pack grid plcae]] Attr Geom
+		lassign [Util::splitOnWord args [list pack grid place]] Attr Geom
 		
 		#puts [list Attr => $Attr Geom -> $Geom] 
 		
