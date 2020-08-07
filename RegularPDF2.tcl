@@ -34,8 +34,8 @@ namespace eval RootWindow {
 	wm attributes 	. -topmost 1
 	
 	# the resize grip
-	ttk::sizegrip	.ttksgResize
-	pack .ttksgResize -side bottom -fill x
+	#ttk::sizegrip	.ttksgResize
+	#pack .ttksgResize -side bottom -fill x
 }
 
 namespace eval MainPane {
@@ -45,11 +45,12 @@ namespace eval MainPane {
 	
 	#
 	panedwindow $wPath -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -background $background
-	pack $wPath -expand 1 -fill both -side bottom
+	pack $wPath -fill both -side bottom
 
 }
 namespace eval SecondFrame {
 	variable wPath [frame $MainPane::wPath.fSecond]
+	variable scrollFrame [frame $wPath.fScroll -background red]
 }
 namespace eval Icon {
 	namespace eval Unicode {
@@ -277,12 +278,16 @@ namespace eval Util {
 	proc bindOnce [list on eventType what] {
 		bind $on <$eventType> " $what ; bind $on <$eventType> {} "
 	}
+
+	proc bindRegular [list on event command] {
+		bind $on <$event> "$command"
+	}
 } ; # End of namespace
 namespace eval ReliefButton {
-	variable on sunken off groove
+	variable on sunken off raised
 	proc new [list path args] {
 		Util::injectVariablesAndRemoveSwitchesFromAList args -Status -command -WhenOn -WhenOff ; set Status [string tolower $Status]
-		set path [button $path {*}$args -borderwidth 3 -relief [if {$Status in [list on off]} {set ReliefButton::$Status} else {concat $ReliefButton::off} ] -command [string cat $command "; ReliefButton::switch $path"] ]
+		set path [button $path {*}$args -relief [if {$Status in [list on off]} {set ReliefButton::$Status} else {concat $ReliefButton::off} ] -command [string cat $command "; ReliefButton::switch $path"] ]
 		if {$WhenOn ne {}}  {
 			$path config -command [string cat [$path cget -command] "; if \[ReliefButton::isOn $path\] {$WhenOn}"]
 			#puts [list final command =[$path cget -command]=]
@@ -841,22 +846,46 @@ namespace eval Toolbar {
 
 	variable borderWidth 0
 	; # widget path ; to keep track ; its count ; Indicies of Menu buttons in $children ; visiblility? 0/No => Menu Bar is Visible, 1/yes => Menu Buttons are visible ; pack LtR or RtL
-	variable wPath  [frame		.fToolbar -borderwidth $Toolbar::borderWidth -relief flat -background lightblue] children [dict create]  childrenCount 0  menuButtons [list]  areMenuButtonsVisible {No} packSide {left} menuButtonChildren [dict create] menuButtonChildrenCount 0 wPath2 [panedwindow .pwPnae2 -background green -sashpad 0 -sashwidth 0]
-	variable f [frame $wPath2.fF]
+	variable \
+	wPath  [frame		.fToolbar -borderwidth $Toolbar::borderWidth -relief flat -background lightblue] \
+	children [dict create]  \
+	childrenCount 0  \
+	menuButtons [list]  \
+	areMenuButtonsVisible {No} \
+	packSide {left} \
+	menuButtonChildren [dict create] \
+	menuButtonChildrenCount 0 \
+	wPath2 [panedwindow .pwPane2 -background green -sashpad 0 -sashwidth 0]
 	
-	pack 		$wPath -side top -expand 0 -fill none
-	pack 		$wPath2 -side top -expand 1 -fill x -after $wPath
+	variable f [frame $wPath2.fF -background blue] 
+	
+	pack 		$wPath -side top  -fill x
+	pack 		$wPath2 -side top -fill x
 	proc wPath2Config {} {
-		$Toolbar::wPath2 add [label $Toolbar::wPath2.l -text 0]
-		foreach i [list 1 2 3 4] {
+		$Toolbar::wPath2 add [label $Toolbar::wPath2.l -text X]
+		foreach i [list 1 2 3 4] color [list black green red yellow] {
 			grid [Toolbar::newPayload $Toolbar::f.bB$i -Type ReliefButton::new -text $i -relief groove] -row 0 -column $i -sticky nswe
+			grid [Toolbar::newPayload $Toolbar::f.lL$i -Type label -text {} -background $color				] -row 1 -column $i -sticky nsw
 		}
 		
 		grid columnconfigure $Toolbar::f all -weight 1 -minsize 0 -uniform 1
 		$Toolbar::wPath2 add $Toolbar::f
-		bind .pwPane <B1-Motion> {
+		bind $Draw::wPath <Configure> {
 			lassign [.pwPane sash coord 0] x y
-			$Toolbar::wPath2 sash place 0 [incr x 30] $y}
+			$Toolbar::wPath2 sash place 0 [incr x 30] $y
+		}
+		
+		Util::bindOnce ${Toolbar::f}.lL1 Map {
+		set max [Util::max [lmap e [list Properties Sequence Tabs] {concat [winfo reqwidth [set ${e}::wPath]]}] ]
+		set oneW -[winfo width %W]
+		#error [list max is $max]
+		lmap e [list 1 2 3 4] {
+			grid configure [set widget ${Toolbar::f}.lL$e] -padx [list [expr {$oneW + $max}] 0]
+			#puts [list padx Complete]
+			# this is terrible; %W is getting replaced by the the current/parent -> .lL1 ; Temporary
+			Util::bindRegular $widget Unmap {puts [list %W -> Unmapped]}
+			}
+		}
 	}
 	proc newPayload [list pathName args] {
 		# set the option argument of -Type and remove them from $args
@@ -962,6 +991,8 @@ namespace eval Toolbar {
 		}
 	}
 
+	
+	
 } ; # End of Toolbar
 
 Toolbar::newPayload $Toolbar::wPath.bButton1 -relief raised -text 123 -WithSeparator 1 -Type button pack
@@ -1025,6 +1056,7 @@ namespace eval Tabs {
 		ttk::separator		$wPath.ttkspLine -orient horizontal
 		grid				$wPath.lBanner 	-row 0 -column 0 -columnspan 2 -sticky nswe
 		grid				$wPath.ttkspLine -row 1 -column 0 -columnspan 2 -sticky nswe
+		grid columnconfigure $Tabs::wPath 0 -weight 1
 	button		$wPath.bB0	-text {Create New Document}		-command Tabs::newDocument
 	grid		$wPath.bB0	-row 2	-column	0	-columnspan 2 -sticky nswe
 	
@@ -1158,31 +1190,44 @@ namespace eval Properties {
 	pack [label		$wPath.lBanner -text Properties] 						-side top -fill x
 	pack [ttk::separator		$wPath.ttkspLine -orient horizontal] 		-side top -fill x -pady [list 0 0.25c]
 	label $wPath.lClear -text {No Object is currently selected}
-	# A New Frame for Object's Info; Name and Type -> universal
-	pack [frame 			$wPath.fInfo]									-side top -fill x
-	grid [label		$wPath.fInfo.lLabelName -text {Object's Name}] 		-row 0 -column 0 -sticky w
-	grid [label		$wPath.fInfo.lName -text {}] 							-row 0 -column 1 -sticky e
-	grid [label		$wPath.fInfo.lLabelType -text {Object's Type}] 		-row 1 -column 0 -sticky w
-	grid [label		$wPath.fInfo.lType -text {}] 							-row 1 -column 1 -sticky e
-	# Other Properties. to be added later.
+
+	frame 		$wPath.fInfo
+	label		$wPath.fInfo.lLabelName -text {Object's Name}
+	label		$wPath.fInfo.lName -text {}
+	label		$wPath.fInfo.lLabelType -text {Object's Type}
+	label		$wPath.fInfo.lType -text {}
 	
+	Util::bindOnce $Properties::wPath.lBanner Map {Properties::clear}
+	
+	proc restore {} {
+		if {{$Properties::wPath.fInfo} in [pack slaves $Properties::wPath]} return
+		pack forget $Properties::wPath.lClear
+		pack $Properties::wPath.fInfo								-side top -fill both
+		grid columnconfigure $Properties::wPath.fInfo 1 			-weight 1
+		grid $Properties::wPath.fInfo.lLabelName 					-row 0 -column 0 -sticky w
+		grid $Properties::wPath.fInfo.lName							-row 0 -column 1 -sticky w
+		grid $Properties::wPath.fInfo.lLabelType					-row 1 -column 0 -sticky w
+		grid $Properties::wPath.fInfo.lType							-row 1 -column 1 -sticky w
+	}
 	proc map [list realId namespaceName] {
-		$Properties::wPath.fInfo.lName config -text $realId
+		Properties::restore
+		$Properties::wPath.fInfo.lName config -text #$realId
 		$Properties::wPath.fInfo.lType config -text $namespaceName
 		upvar 1 "${namespaceName}::supported" supported
-		set all [lrange [winfo children $Properties::wPath.fInfo ] 2 end]
-		grid forget {*}$all
+		set all [lrange [winfo children $Properties::wPath.fInfo ] 4 end]
+		#error [list all -> $all]
+		expr {$all eq {}? {concat concat} : {grid forget {*}$all} }
 		set count 2
-		puts [list supported -> $supported]
+		#error [list supported -> $supported]
 		foreach e $supported {
-			puts [list e -> $e]
+			#puts [list SupportedProperty -> $e]
 			if ![winfo exists $Properties::wPath.fInfo.lLabel$e] {
-				puts NotFound
+				#puts [list LabelForPropertyNotFound $e]
 				label $Properties::wPath.fInfo.lLabel$e -text "Object's $e"
 				label $Properties::wPath.fInfo.l$e -text {}
 			}
 			$Properties::wPath.fInfo.l$e config -text [${namespaceName}::$e $realId]
-			grid $Properties::wPath.fInfo.l$e  		-row $count -column 1 -sticky e
+			grid $Properties::wPath.fInfo.l$e  		-row $count -column 1 -sticky w
 			grid $Properties::wPath.fInfo.lLabel$e 	-row $count -column 0 -sticky w
 			incr count
 		}
@@ -1191,13 +1236,12 @@ namespace eval Properties {
 	proc clear {} {
 		$Properties::wPath.lClear config -wraplength [winfo width $Properties::wPath]
 		$Properties::wPath.lClear config -state disabled
-		grid remove {*}[grid slaves $Properties::wPath.fInfo]
 		pack forget $Properties::wPath.fInfo
 		pack $Properties::wPath.lClear -fill none -expand 1
 		#Properties::clear
 	}
 	
-	Util::bindOnce $Properties::wPath.fInfo Map {Properties::clear}
+	
 }
 namespace eval Sequence {
 	variable wPath [frame $SecondFrame::wPath.fSequence -borderwidth 2 -relief groove]
@@ -1209,7 +1253,18 @@ namespace eval Sequence {
 	pack [ttk::separator		$wPath.fBanner.ttspLine -orient horizontal] -fill x -pady [list 0 0.25c]
 	# order -> order in object class' (objects dict) ; ;
 	variable objects [dict create] types [dict create] count 0
-	#
+	
+	# Headers
+	grid [label $wPath.fRest.lH0 -text {Order}] -row 0 -column 0 -sticky we
+	grid [label $wPath.fRest.lH1 -text {Instance Type}] -row 0 -column 2 -sticky we
+	grid [label $wPath.fRest.lH2 -text {Instance Count}] -row 0 -column 4 -sticky we
+	
+	grid [ttk::separator $wPath.fRest.ttkspH0 -orient vertical] -row 0 -column 1 -sticky ns
+	grid [ttk::separator $wPath.fRest.ttkspH1 -orient vertical] -row 0 -column 3 -sticky ns
+	
+	grid columnconfigure $Sequence::wPath.fRest 2 -weight 1
+	grid columnconfigure $Sequence::wPath.fRest 4 -weight 1
+	
 	proc add [list realId namespaceName] {
 		dict set Sequence::objects $Sequence::count $realId
 		dict set Sequence::types $realId $namespaceName
@@ -1218,13 +1273,14 @@ namespace eval Sequence {
 				$Sequence::wPath.fRest.lCount$Sequence::count \
 				$Sequence::wPath.fRest.lType$Sequence::count \
 				$Sequence::wPath.fRest.lRealId$Sequence::count ]
-		grid	[label [lindex $Ls 0] -text $Sequence::count] 									-row $Sequence::count -column 0
+		grid	[label [lindex $Ls 0] -text $Sequence::count] 									-sticky we -row $Sequence::count -column 0
 		grid	[ttk::separator $Sequence::wPath.fRest.ttkspLine${Sequence::count}1	-orient vertical ] -sticky ns 			-row $Sequence::count -column 1
-		grid	[label [lindex $Ls 1] -text [set ${namespaceName}::abbreaviatedName]]  					-row $Sequence::count -column 2
+		grid	[label [lindex $Ls 1] -text "$namespaceName"]  			-sticky we	-row $Sequence::count -column 2
 		grid	[ttk::separator $Sequence::wPath.fRest.ttkspLine${Sequence::count}3	-orient vertical ] -sticky ns			-row $Sequence::count -column 3
-		grid	[label [lindex $Ls 2] -text "$namespaceName Object #$realId"] 							-row $Sequence::count -column 4
+		grid	[label [lindex $Ls 2] -text "Instance #$realId"] 					-sticky we	-row $Sequence::count -column 4
 		
-		set command [join [list {*}[lmap i $Ls {concat "$i config -state active"}] "Properties::map $realId $namespaceName"] {; }]
+		set command [concat [join [lmap i $Ls {concat "$i config -state active ; "}] ]  " ; Properties::map $realId $namespaceName"]
+		#error [list command -> $command]
 		foreach e $Ls {
 				$e config -activebackground [.mRoot.mHelp cget -activebackground]
 				$e config -activeforeground [.mRoot.mHelp cget -activeforeground]
@@ -1295,16 +1351,18 @@ proc doLast {} {
 	
 	# For Testing purposes only,
 	# Before window creation and visibility it's all 0 0 0...
-	puts [list -x [winfo x .pwPane] -y [winfo y .pwPane] \
+	#puts [list -x [winfo x .pwPane] -y [winfo y .pwPane] \
 		  -rootx [winfo rootx .pwPane] -rooty [winfo rooty .pwPane] \
 		  -vrootx [winfo vrootx .pwPane] -vrooty [winfo vrooty .pwPane]]
 	
-	puts [list ** [winfo width $Properties::wPath] [winfo reqwidth $Properties::wPath] ]
+	#puts [list ** [winfo width $Properties::wPath] [winfo reqwidth $Properties::wPath] ]
 	
 	CustomSave::configure
 	grid columnconfigure $SecondFrame::wPath all -weight 1 -minsize 0 -uniform 1
 	.pwPane add $SecondFrame::wPath -sticky nswe
 	Toolbar::wPath2Config
+	
+	
 }
 
 
