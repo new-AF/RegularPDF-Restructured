@@ -56,11 +56,9 @@ namespace eval SecondFrame {
 	proc add [list path order] {
 		#place $Files::wPath -relx 0 -y 0 -relwidth 0.25 -relheight 1
 		grid $path -row 0 -column $order -sticky nswe
+		grid columnconfigure $SecondFrame::wPath $order -weight 1 -minsize 0 -uniform 1
 	}
 	
-	proc uniformColumns {} {
-		grid columnconfigure $SecondFrame::wPath all -weight 1 -minsize 0 -uniform 1
-	}
 	proc item [list index] {
 		set i [set [lindex $Toolbar::paneNames [expr {$index -1}]  ]::wPath]
 		puts [list item -> $i]
@@ -69,7 +67,7 @@ namespace eval SecondFrame {
 	# index as in count, 1-based
 	proc show [list index] {
 		puts [list Index -> $index]
-		grid columnconfigure $SecondFrame::wPath $index -weight 0 -minsize 0 -uniform 0
+		grid columnconfigure $SecondFrame::wPath $index -weight 1 -minsize 0 -uniform 1
 		grid [SecondFrame::item $index]
 	}
 	
@@ -1453,7 +1451,6 @@ proc doLast {} {
 	.pwPane add $SecondFrame::wPath -sticky nswe
 	Toolbar::wPath2Config
 	
-	SecondFrame::uniformColumns
 	
 }
 
