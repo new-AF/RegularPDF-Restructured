@@ -61,27 +61,46 @@ namespace eval SecondFrame {
 	
 	proc add [list path order] {
 		#place $Files::wPath -relx 0 -y 0 -relwidth 0.25 -relheight 1
+		dict set Toolbar::paneMapPaths $order $path
 		grid $path -row 0 -column $order -sticky nswe
 		grid columnconfigure $SecondFrame::wPath $order -weight 1 -minsize 0 -uniform 1
 	}
 	
-	proc item [list index] {
-		set i [set [lindex $Toolbar::paneNames [expr {$index -1}]  ]::wPath]
-		#puts [list item -> $i]
-		return $i
-	}
+	
 	# index as in count, 1-based
-	proc show [list index] {
-		#puts [list show Index -> $index ; [ReliefButton::isOn $Toolbar::f.bB$index]]
-		if ![ReliefButton::isOn $Toolbar::f.bB$index] {return}
-		grid columnconfigure $SecondFrame::wPath $index -weight 1 -minsize 0 -uniform 1
-		grid [SecondFrame::item $index]
+	proc show [list lst args] {
+		set args [concat $lst $args]
+		foreach index $args {
+			if ![ReliefButton::isOn $Toolbar::f.bB$index] {return}
+			grid columnconfigure $SecondFrame::wPath $index -weight 1 -minsize 0 -uniform 1
+			grid [Toolbar::indexToPath $index]
+		}
 	}
 	
-	proc hide [list index] {
-		#puts [list Index -> $index]
-		grid columnconfigure $SecondFrame::wPath $index -weight 0 -minsize 0 -uniform 0
-		grid remove [SecondFrame::item $index]
+	proc _show [list lst args] {
+		set args [concat $lst $args]
+		for {set i 0 ; set len [llength $args]} {$i < $len} {} {
+			lassign [lrange $args $i  [incr i 3] ] path column _frame
+			if ![ReliefButton::isOn $path] {return}
+			grid columnconfigure $SecondFrame::wPath $column -weight 1 -minsize 0 -uniform 1
+			grid $_frame
+		}
+	}
+	proc _hide [list lst args] {
+		set args [concat $lst $args]
+		for {set i 0 ; set len [llength $args]} {$i < $len} {} {
+			lassign [lrange $args $i  [incr i 3] ] path column _frame
+			
+			grid columnconfigure $SecondFrame::wPath $column -weight 0 -minsize 0 -uniform 1
+			grid remove $_frame
+		}
+	}
+	proc hide [list lst args] {
+		set args [concat $lst $args]
+		foreach index $args {
+			grid columnconfigure $SecondFrame::wPath $index -weight 0 -minsize 0 -uniform 0
+			grid remove [Toolbar::indexToPath $index]
+		}
 	}
 	
 	proc addLast {} {
@@ -319,12 +338,45 @@ namespace eval Util {
 	proc bindRegular [list on event command] {
 		bind $on <$event> "$command"
 	}
+
+	proc verbose args {
+		# SYNTAX:
+		#	Util::verbose -> All variables and their contents in CALLER (unless variable is an array then ARRAY is returned)
+		#	Util::verbose [someCommand 123] [another 456] -> Same as above AND values of these commands.
+		#	Util:: verbose NO a b c -> Will ONLY Query contents of these variables NAMES (unless a variable is an array)
+		if {[lindex $args 0] eq {NO}} {
+			set vars [lrange $args 1 end]
+			set args [list]
+		} else {
+			set vars [uplevel 1 {info vars}]
+		}
+		
+		
+		puts "
+Proc 		-> [expr {[info level] > 1 ? [uplevel 1 {info level 0}] : {TOPLEVEL}}] 
+Variables 	-> ($vars)"
+		foreach i $vars {
+			#puts "puts $i -> (\[set $i\])"
+			uplevel 1 "puts \" \[format %10s {$i} \] -> (\[expr {\[array exists {$i}\] ? {ARRAY} :\[set {$i}\]}\])\ \\n \" "
+		}
+		if [llength $args] {
+			puts "Passed \$args Values :="
+			foreach i $args {
+				puts "[format %10s {}] -> $i"
+			}
+		}
+	}
+
+
 } ; # End of namespace
 namespace eval ReliefButton {
 	variable on sunken off raised
 	proc new [list path args] {
 		Util::injectVariablesAndRemoveSwitchesFromAList args -Status -command -WhenOn -WhenOff ; set Status [string tolower $Status]
-		set path [button $path {*}$args -relief [if {$Status in [list on off]} {set ReliefButton::$Status} else {concat $ReliefButton::off} ] -command [string cat $command "; ReliefButton::switch $path"] ]
+		set path [button $path {*}$args -relief [if {$Status in [list on off]} {set ReliefButton::$Status} else {concat $ReliefButton::off} ] -command [
+			string cat  "ReliefButton::switch $path ;" $command
+			]
+		]
 		if {$WhenOn ne {}}  {
 			$path config -command [string cat [$path cget -command] "; if \[ReliefButton::isOn $path\] {$WhenOn}"]
 			#puts [list final command =[$path cget -command]=]
@@ -336,11 +388,14 @@ namespace eval ReliefButton {
 		return $path
 	}
 	proc isOn path {
-		return [expr {[$path cget -relief] eq {$ReliefButton::on}}]
+		set current [$path cget -relief]
+		#Util::verbose
+		return [expr {$current eq $ReliefButton::on}]
 	}
 	proc switch path {
 		$path config -relief [lindex [list $ReliefButton::on $ReliefButton::off] [set bool [ReliefButton::isOn $path]]]
 		set text [$path cget -text]
+		#Util::verbose
 		$path config -text [lindex [list [concat $Icon::Unicode::Check $text] [lrange $text 1 end]] $bool]  
 	}
 }
@@ -900,6 +955,12 @@ namespace eval Toolbar {
 	variable f [frame $wPath2.fF -background blue] \
 	paneCount [llength $paneNames]
 	
+	variable paneRanges [Util::range 1 $paneCount]
+	
+	variable paneMapNames [dict create {*}[join [lmap i $paneNames j $paneRanges {concat [list $j $i]} ]]] \
+	paneMapPaths [dict create ]
+	#eputs $paneMapNames
+	
 	pack 		$wPath -side top  -fill x
 	pack 		$wPath2 -side top -fill x
 	
@@ -907,7 +968,7 @@ namespace eval Toolbar {
 	proc wPath2Config {} {
 		$Toolbar::wPath2 add [label $Toolbar::wPath2.l -text X]
 		foreach i [list 1 2 3 4] color [list black green red yellow] bName $Toolbar::paneNames {
-			grid [Toolbar::newPayload $Toolbar::f.bB$i -Type ReliefButton::new -text $bName -relief groove] -row 0 -column $i -sticky nswe
+			grid [Toolbar::newPayload $Toolbar::f.bB$i -Type ReliefButton::new -text $bName -relief groove -WhenOn "Toolbar::assess" -WhenOff "Toolbar::assess"] -row 0 -column $i -sticky nswe
 			#grid [Toolbar::newPayload $Toolbar::f.lL$i -Type label -text {} -background $color				] -row 1 -column $i -sticky nsw
 		}
 		
@@ -926,20 +987,16 @@ namespace eval Toolbar {
 		}
 		
 		Util::bindOnce ${Toolbar::f} Map {
-			variable ::Toolbar::maxWidth [Util::max [set L [lmap e [set L [list Properties Sequence Tabs] ] {concat [winfo reqwidth [set ${e}::wPath]]}] ] ] ; puts [list maxWidth -> $Toolbar::maxWidth L -> $L]
+			variable ::Toolbar::maxWidth [Util::max [set L [lmap e [set L [list Properties Sequence Tabs] ] {concat [winfo reqwidth [set ${e}::wPath]]}] ] ]
+			#Util::verbose NO Toolbar::maxWidth
 			incr Toolbar::maxWidth [set oneW -[expr {[winfo width %W] / 2}]]
 			$MainPane::wPath sash place 0 [expr {[lindex [$MainPane::wPath sash coord 0] 0] + 1}] 1
 			$MainPane::wPath sash place 0 [expr {[lindex [$MainPane::wPath sash coord 0] 0] - 1}] 1
 			
 			variable ::Toolbar::paneIndex $Toolbar::paneCount
-			#variable ::Toolbar::paneIndexBefore [expr {$Toolbar::paneCount -1}]
-			#variable ::Toolbar::aPad [expr {$Toolbar::maxWidth * $Toolbar::paneCount}] ; puts [list aPad -> $Toolbar::aPad]
-			#variable ::Toolbar::bPad $Toolbar::aPad
+		
 			
-			#grid configure [set widget ${Toolbar::f}.lL1] -padx [list $Toolbar::aPad  0] 			
-			#grid configure [set widget ${Toolbar::f}.lLEnd] -padx [list $Toolbar::bPad 0] 			
-			
-			foreach e [list 1 2 3 4] name $Toolbar::paneNames {if ![ReliefButton::isOn [set e $Toolbar::f.bB$e]] {grid remove [set ${name}::wPath]}}
+			#dict for {i path} $Toolbar::paneMapPaths {if ![ReliefButton::isOn [set e $Toolbar::f.bB$i]] {grid remove $path}}
 		}
 		
 	}
@@ -1102,13 +1159,33 @@ namespace eval Toolbar {
 	
 	proc foreward {} {}
 	proc backward {} {}
-	proc assess {} {
-		set w [winfo width $SecondFrame::wPath]
-		set index [expr {$w / $Toolbar::maxWidth}] 
-		#puts [list F width -> $w | maxWidth -> $Toolbar::maxWidth | howMuchItCanFit $index ]
-		foreach e [Util::range 1 $index] {SecondFrame::show $e}
-		foreach e [Util::range [expr {$index + 1 }] $Toolbar::paneCount] {SecondFrame::hide $e}
+	proc assess [list [list which no] ] {
+		set width [winfo width $SecondFrame::wPath]
+		set canFit [expr {$width / $Toolbar::maxWidth}]
 		
+		#Util::verbose
+		set yes [list]
+		set no [list]
+		foreach i $Toolbar::paneRanges {
+			if [ReliefButton::isOn $Toolbar::f.bB$i] {
+				lappend yes $i
+			} else {
+				lappend no $i
+			}
+		}
+		#Util::verbose
+		#SecondFrame::show [Util::range 1 $canFit]
+		#SecondFrame::hide [Util::range [expr {$canFit + 1 }] $Toolbar::paneCount]
+		SecondFrame::show [lrange $yes 0 $canFit-1]
+		SecondFrame::hide $no
+		
+	}
+	
+	proc indexToPath [list index] {
+		
+		set i [dict get $Toolbar::paneMapPaths $index]
+		#Util::verbose
+		return $i
 	}
 } ; # End of Toolbar
 
