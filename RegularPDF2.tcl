@@ -72,7 +72,8 @@ namespace eval SecondFrame {
 	}
 	# index as in count, 1-based
 	proc show [list index] {
-		#puts [list Index -> $index]
+		#puts [list show Index -> $index ; [ReliefButton::isOn $Toolbar::f.bB$index]]
+		if ![ReliefButton::isOn $Toolbar::f.bB$index] {return}
 		grid columnconfigure $SecondFrame::wPath $index -weight 1 -minsize 0 -uniform 1
 		grid [SecondFrame::item $index]
 	}
@@ -335,7 +336,7 @@ namespace eval ReliefButton {
 		return $path
 	}
 	proc isOn path {
-		return [expr {[$path cget -relief] eq $ReliefButton::on}]
+		return [expr {[$path cget -relief] eq {$ReliefButton::on}}]
 	}
 	proc switch path {
 		$path config -relief [lindex [list $ReliefButton::on $ReliefButton::off] [set bool [ReliefButton::isOn $path]]]
@@ -906,7 +907,7 @@ namespace eval Toolbar {
 	proc wPath2Config {} {
 		$Toolbar::wPath2 add [label $Toolbar::wPath2.l -text X]
 		foreach i [list 1 2 3 4] color [list black green red yellow] bName $Toolbar::paneNames {
-			grid [Toolbar::newPayload $Toolbar::f.b$bName -Type ReliefButton::new -text $bName -relief groove] -row 0 -column $i -sticky nswe
+			grid [Toolbar::newPayload $Toolbar::f.bB$i -Type ReliefButton::new -text $bName -relief groove] -row 0 -column $i -sticky nswe
 			#grid [Toolbar::newPayload $Toolbar::f.lL$i -Type label -text {} -background $color				] -row 1 -column $i -sticky nsw
 		}
 		
@@ -938,7 +939,7 @@ namespace eval Toolbar {
 			#grid configure [set widget ${Toolbar::f}.lL1] -padx [list $Toolbar::aPad  0] 			
 			#grid configure [set widget ${Toolbar::f}.lLEnd] -padx [list $Toolbar::bPad 0] 			
 			
-			
+			foreach e [list 1 2 3 4] name $Toolbar::paneNames {if ![ReliefButton::isOn [set e $Toolbar::f.bB$e]] {grid remove [set ${name}::wPath]}}
 		}
 		
 	}
@@ -1102,7 +1103,7 @@ namespace eval Toolbar {
 	proc foreward {} {}
 	proc backward {} {}
 	proc assess {} {
-		set w [winfo width $Toolbar::f]
+		set w [winfo width $SecondFrame::wPath]
 		set index [expr {$w / $Toolbar::maxWidth}] 
 		#puts [list F width -> $w | maxWidth -> $Toolbar::maxWidth | howMuchItCanFit $index ]
 		foreach e [Util::range 1 $index] {SecondFrame::show $e}
