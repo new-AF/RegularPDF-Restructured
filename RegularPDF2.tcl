@@ -24,7 +24,7 @@ proc eputs args {error $args}
 namespace eval RootWindow {
 	
 	variable wPath {.} \
-	width 700 	height 400 	screenW [winfo vrootwidth .] 	screenH [winfo vrootheight .]
+	width 700 	height 700 	screenW [winfo vrootwidth .] 	screenH [winfo vrootheight .]
 	variable x [expr {$screenW / 2 - $width /2}] 	y [expr {$screenH / 2 - $height /2}] os [lindex [array get tcl_platform os] 1]
 	
 	# center the Root window
@@ -51,7 +51,13 @@ namespace eval MainPane {
 }
 namespace eval SecondFrame {
 	variable wPath [frame $MainPane::wPath.fSecond]
-	variable scrollFrame [frame $wPath.fScroll -background red]
+	variable scrollFrame [frame $wPath.fScroll]
+	variable scrollCanvas [canvas $scrollFrame.cScroll -background red]
+	variable scrollH	[scrollbar $scrollFrame.sbH -orient horizontal -command "$scrollCanvas xview"] scrollV		[scrollbar $scrollFrame.sbV -orient vertical -command "$scrollCanvas yview"]
+	pack $scrollH -side bottom -fill x
+	pack $scrollV -side right -fill y
+	pack $scrollCanvas -side left -fill both -expand 1
+	
 	
 	proc add [list path order] {
 		#place $Files::wPath -relx 0 -y 0 -relwidth 0.25 -relheight 1
@@ -61,20 +67,25 @@ namespace eval SecondFrame {
 	
 	proc item [list index] {
 		set i [set [lindex $Toolbar::paneNames [expr {$index -1}]  ]::wPath]
-		puts [list item -> $i]
+		#puts [list item -> $i]
 		return $i
 	}
 	# index as in count, 1-based
 	proc show [list index] {
-		puts [list Index -> $index]
+		#puts [list Index -> $index]
 		grid columnconfigure $SecondFrame::wPath $index -weight 1 -minsize 0 -uniform 1
 		grid [SecondFrame::item $index]
 	}
 	
 	proc hide [list index] {
-		puts [list Index -> $index]
+		#puts [list Index -> $index]
 		grid columnconfigure $SecondFrame::wPath $index -weight 0 -minsize 0 -uniform 0
 		grid remove [SecondFrame::item $index]
+	}
+	
+	proc addLast {} {
+		grid $scrollFrame -row 0 -column 5 -sticky we
+		grid columnconfigure $wPath -w
 	}
 	
 }
@@ -218,8 +229,7 @@ namespace eval Util {
 		#collect all arguments as a list.
 		set args [concat $a $args]
 		
-		set args [lsort -decreasing $args]
-		return [lindex $args 0]
+		return [::tcl::mathfunc::max {*}$args]
 	}
 	
 	proc args {lst args} {
@@ -882,7 +892,8 @@ namespace eval Toolbar {
 	menuButtonChildrenCount 0 \
 	wPath2 [panedwindow .pwPane2 -background green -sashpad 0 -sashwidth 0] \
 	maxWidth {No} \
-	paneNames [list Files Sequence Properties Tabs]
+	paneNames [list Files Sequence Properties Tabs] \
+	onceStopsId {No} 
 	
 	
 	variable f [frame $wPath2.fF -background blue] \
@@ -901,8 +912,10 @@ namespace eval Toolbar {
 		
 		grid [Toolbar::newPayload $Toolbar::f.lL1 -Type label -text {} -background white				] -row 1 -column 1 -columnspan $Toolbar::paneCount -sticky nsw 
 		grid [Toolbar::newPayload $Toolbar::f.lLEnd -Type label -text {} -background white				] -row 2 -column 1 -columnspan $Toolbar::paneCount -sticky nsw 
-		Util::bindRegular $Toolbar::f.lL1 Map {Toolbar::moveForeward}
-		Util::bindRegular $Toolbar::f.lLEnd Unmap {Toolbar::moveBack}
+		#Util::bindRegular $Toolbar::f.lL1 Map {Toolbar::moveForeward}
+		#Util::bindRegular $Toolbar::f.lLEnd Unmap {Toolbar::moveBack}
+		
+		Util::bindRegular $SecondFrame::wPath Configure {after cancel $Toolbar::onceStopsId ; set Toolbar::onceStopsId [after 50 Toolbar::assess]} 
 		
 		grid columnconfigure $Toolbar::f all -weight 1 -minsize 0 -uniform 1
 		$Toolbar::wPath2 add $Toolbar::f
@@ -912,18 +925,18 @@ namespace eval Toolbar {
 		}
 		
 		Util::bindOnce ${Toolbar::f} Map {
-			variable ::Toolbar::maxWidth [Util::max [lmap e [list Properties Sequence Tabs] {concat [winfo reqwidth [set ${e}::wPath]]}] ]
+			variable ::Toolbar::maxWidth [Util::max [set L [lmap e [set L [list Properties Sequence Tabs] ] {concat [winfo reqwidth [set ${e}::wPath]]}] ] ] ; puts [list maxWidth -> $Toolbar::maxWidth L -> $L]
 			incr Toolbar::maxWidth [set oneW -[expr {[winfo width %W] / 2}]]
 			$MainPane::wPath sash place 0 [expr {[lindex [$MainPane::wPath sash coord 0] 0] + 1}] 1
 			$MainPane::wPath sash place 0 [expr {[lindex [$MainPane::wPath sash coord 0] 0] - 1}] 1
 			
 			variable ::Toolbar::paneIndex $Toolbar::paneCount
-			variable ::Toolbar::paneIndexBefore [expr {$Toolbar::paneCount -1}]
-			variable ::Toolbar::aPad [expr {$Toolbar::maxWidth * $Toolbar::paneCount}]
-			variable ::Toolbar::bPad $Toolbar::aPad
+			#variable ::Toolbar::paneIndexBefore [expr {$Toolbar::paneCount -1}]
+			#variable ::Toolbar::aPad [expr {$Toolbar::maxWidth * $Toolbar::paneCount}] ; puts [list aPad -> $Toolbar::aPad]
+			#variable ::Toolbar::bPad $Toolbar::aPad
 			
-			grid configure [set widget ${Toolbar::f}.lL1] -padx [list $Toolbar::aPad  0] 			
-			grid configure [set widget ${Toolbar::f}.lLEnd] -padx [list $Toolbar::bPad 0] 			
+			#grid configure [set widget ${Toolbar::f}.lL1] -padx [list $Toolbar::aPad  0] 			
+			#grid configure [set widget ${Toolbar::f}.lLEnd] -padx [list $Toolbar::bPad 0] 			
 			
 			
 		}
@@ -1085,6 +1098,17 @@ namespace eval Toolbar {
 	}
 	
 	
+	
+	proc foreward {} {}
+	proc backward {} {}
+	proc assess {} {
+		set w [winfo width $Toolbar::f]
+		set index [expr {$w / $Toolbar::maxWidth}] 
+		#puts [list F width -> $w | maxWidth -> $Toolbar::maxWidth | howMuchItCanFit $index ]
+		foreach e [Util::range 1 $index] {SecondFrame::show $e}
+		foreach e [Util::range [expr {$index + 1 }] $Toolbar::paneCount] {SecondFrame::hide $e}
+		
+	}
 } ; # End of Toolbar
 
 Toolbar::newPayload $Toolbar::wPath.bButton1 -relief raised -text 123 -WithSeparator 1 -Type button pack
