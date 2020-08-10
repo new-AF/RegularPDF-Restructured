@@ -1177,7 +1177,7 @@ namespace eval Toolbar {
 		#SecondFrame::show [Util::range 1 $canFit]
 		#SecondFrame::hide [Util::range [expr {$canFit + 1 }] $Toolbar::paneCount]
 		SecondFrame::show [lrange $yes 0 $canFit-1]
-		SecondFrame::hide [lrange $Toolbar::paneRanges $canFit end]
+		SecondFrame::hide [lrange $yes $canFit end]
 		SecondFrame::hide $no
 		
 	}
