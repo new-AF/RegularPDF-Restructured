@@ -46,37 +46,103 @@ namespace eval MainPane {
 	
 	#
 	panedwindow $wPath -showhandle 1 -sashwidth 10 -sashpad 20 -sashrelief raised -handlepad 0 -background $background
-	pack $wPath -fill both -side bottom
+	pack $wPath -expand 1 -fill both -side bottom
 
 }
 namespace eval SecondFrame {
-	variable wPath [frame $MainPane::wPath.fSecond]
-	variable scrollFrame [frame $wPath.fScroll]
-	variable scrollCanvas [canvas $scrollFrame.cScroll -background red]
-	variable scrollH	[scrollbar $scrollFrame.sbH -orient horizontal -command "$scrollCanvas xview"] scrollV		[scrollbar $scrollFrame.sbV -orient vertical -command "$scrollCanvas yview"]
-	pack $scrollH -side bottom -fill x
-	pack $scrollV -side right -fill y
-	pack $scrollCanvas -side left -fill both -expand 1
+	variable wPath [frame $MainPane::wPath.fSecond -bg red]
+		
+		variable \
+		sbH		[scrollbar $wPath.sbH -orient horizontal -command {$SecondFrame::cC xview}] \
+		sbV		[scrollbar $wPath.sbV -orient vertical -command {$SecondFrame::cC yview}] \
+		dictId	[dict create] \
+		dictY	[dict create] \
+		count	0 \
+		lastY	0 \
+		lastRow 0
+		
+		variable \
+		cC 		[canvas $wPath.cC -background {light blue} -xscrollcommand "$SecondFrame::sbH set" -yscrollcommand "$SecondFrame::sbV set"]
+		
+		variable \
+		sFrame [frame $cC.fScroll -background green]
+		
+		$cC create window [list 0 0] -window $sFrame -tag win
+		
+		bind $cC <Configure> {%W configure -scrollregion [%W bbox all] ; }
+		
+		variable stop no
+		
+	pack $SecondFrame::sbV -side right -fill y
+	#pack $SecondFrame::sbH -side bottom -fill x
+	pack $SecondFrame::cC -side left -expand 1 -fill both
 	
+	
+
 	
 	proc add [list path order] {
 		#place $Files::wPath -relx 0 -y 0 -relwidth 0.25 -relheight 1
 		dict set Toolbar::paneMapPaths $order $path
 		grid $path -row 0 -column $order -sticky nswe
-		grid columnconfigure $SecondFrame::wPath $order -weight 1 -minsize 0 -uniform 1
+		grid columnconfigure $SecondFrame::wPath $order -weight 1  -uniform 1
 	}
 	
 	
 	# index as in count, 1-based
-	proc show [list lst args] {
-		set args [concat $lst $args]
-		foreach index $args {
-			if ![ReliefButton::isOn $Toolbar::f.bB$index] {return}
-			grid columnconfigure $SecondFrame::wPath $index -weight 1 -minsize 0 -uniform 1
-			grid [Toolbar::indexToPath $index]
+	proc show [list lst canFit] {
+		if {$SecondFrame::stop} {return}
+		; #set args [concat $lst $args]
+		#grid columnconfigure $SecondFrame::sFrame all -weight 0 -uniform 1
+		#grid rowconfigure $SecondFrame::sFrame all -weight 0 -uniform 1
+		
+		if {$canFit <= 0} {set canFit 1}
+		#puts {}
+		set start 0
+		set y 0
+		set maxWidth [expr {[winfo width $SecondFrame::cC] / ($canFit)}]
+		set maxHeight [winfo height $SecondFrame::wPath]
+		#Util::verbose
+		while {[set sub [lrange $lst $start [expr {$start+$canFit-1}]]] ne {} } {
+			#puts [list sub $sub]
+			#puts INside
+			set x 0
+			foreach path $sub {
+				place config $path -x $x -y $y -width  $maxWidth -height $maxHeight
+				#grid configure $path -row $start -column $column -sticky nswe
+				#grid rowconfigure $SecondFrame::sFrame $start -weight 1 -uniform 1
+				#grid columnconfigure $SecondFrame::sFrame $column -weight 0 -uniform 1
+				#puts [list x-y $x $y $path $canFit]
+				incr x $maxWidth
+			}
+			
+			incr start $canFit
+			incr y $maxHeight
 		}
+		$SecondFrame::cC moveto win [$SecondFrame::cC canvasx 0] [$SecondFrame::cC canvasy 0]
+		$SecondFrame::cC itemconfigure win -height [expr {$y > 0 ? $y : $maxHeight }] -width [winfo width $SecondFrame::cC]
+		$SecondFrame::cC configure -scrollregion [$SecondFrame::cC bbox all]
+		
 	}
 	
+	
+	proc hide [list lst] {
+		#set args [concat $lst $args]
+		set children [grid slaves $SecondFrame::sFrame]
+		foreach path $lst {
+			#Util::verbose
+			if {$path ni $children} {continue}
+			grid rowconfigure $SecondFrame::sFrame $path -weight 0 -uniform 0
+			grid columnconfigure $SecondFrame::sFrame $path -weight 0 -uniform 0
+			grid forget $path
+			
+			
+		}
+		
+	}
+	
+	
+	
+
 	proc _show [list lst args] {
 		set args [concat $lst $args]
 		for {set i 0 ; set len [llength $args]} {$i < $len} {} {
@@ -86,27 +152,17 @@ namespace eval SecondFrame {
 			grid $_frame
 		}
 	}
+	
 	proc _hide [list lst args] {
 		set args [concat $lst $args]
 		for {set i 0 ; set len [llength $args]} {$i < $len} {} {
 			lassign [lrange $args $i  [incr i 3] ] path column _frame
 			
-			grid columnconfigure $SecondFrame::wPath $column -weight 0 -minsize 0 -uniform 1
+			grid columnconfigure $SecondFrame::wPath $column -weight 0 -uniform 1
 			grid remove $_frame
 		}
 	}
-	proc hide [list lst args] {
-		set args [concat $lst $args]
-		foreach index $args {
-			grid columnconfigure $SecondFrame::wPath $index -weight 0 -minsize 0 -uniform 0
-			grid remove [Toolbar::indexToPath $index]
-		}
-	}
 	
-	proc addLast {} {
-		grid $scrollFrame -row 0 -column 5 -sticky we
-		grid columnconfigure $wPath -w
-	}
 	
 }
 namespace eval Icon {
@@ -552,7 +608,7 @@ namespace eval Files {
 	# aesthetic properties
 	variable lfRelief ridge toolbarPad 10 highThickness 2 highColor yellow borderWidth 10 frameBorderWidth 5 parentBg [.pwPane cget -background]
 	
-	variable wPath [ frame 	$SecondFrame::wPath.lfFiles  -relief $Files::lfRelief -borderwidth $Files::frameBorderWidth ]
+	variable wPath [ frame 	$SecondFrame::sFrame.lfFiles  -relief $Files::lfRelief -borderwidth $Files::frameBorderWidth ]
 	
 	#Icons listbox -textvariable											
 	variable Lvar
@@ -951,6 +1007,7 @@ namespace eval Toolbar {
 	paneNames [list Files Sequence Properties Tabs] \
 	onceStopsId {No} 
 	
+	variable stop no
 	
 	variable f [frame $wPath2.fF -background blue] \
 	paneCount [llength $paneNames]
@@ -979,7 +1036,8 @@ namespace eval Toolbar {
 		
 		Util::bindRegular $SecondFrame::wPath Configure {after cancel $Toolbar::onceStopsId ; set Toolbar::onceStopsId [after 50 Toolbar::assess]} 
 		
-		grid columnconfigure $Toolbar::f all -weight 1 -minsize 0 -uniform 1
+		grid columnconfigure $Toolbar::f $Toolbar::paneRanges -weight 1 -uniform 1
+
 		$Toolbar::wPath2 add $Toolbar::f
 		bind $Draw::wPath <Configure> {
 			lassign [.pwPane sash coord 0] x y
@@ -1160,6 +1218,7 @@ namespace eval Toolbar {
 	proc foreward {} {}
 	proc backward {} {}
 	proc assess [list [list which no] ] {
+		if {$Toolbar::stop} {return}
 		set width [winfo width $SecondFrame::wPath]
 		set canFit [expr {$width / $Toolbar::maxWidth}]
 		
@@ -1167,17 +1226,18 @@ namespace eval Toolbar {
 		set yes [list]
 		set no [list]
 		foreach i $Toolbar::paneRanges {
-			if [ReliefButton::isOn $Toolbar::f.bB$i] {
-				lappend yes $i
-			} else {
-				lappend no $i
-			}
+			
+			lappend [lindex [list no yes ] [ReliefButton::isOn $Toolbar::f.bB$i]] [dict get $Toolbar::paneMapPaths $i]
+			
 		}
+		#puts [list canFit $canFit \n]
 		#Util::verbose
 		#SecondFrame::show [Util::range 1 $canFit]
 		#SecondFrame::hide [Util::range [expr {$canFit + 1 }] $Toolbar::paneCount]
-		SecondFrame::show [lrange $yes 0 $canFit-1]
-		SecondFrame::hide [lrange $yes $canFit end]
+	
+		set canFit [expr {$canFit > $Toolbar::paneCount ? $Toolbar::paneCount : $canFit }]
+	
+		SecondFrame::show $yes $canFit
 		SecondFrame::hide $no
 		
 	}
@@ -1243,7 +1303,7 @@ namespace eval DartButton {} {
 }
 
 namespace eval Tabs {
-	variable wPath [labelframe	$SecondFrame::wPath.lfTabs	-borderwidth 5	-relief groove]
+	variable wPath [labelframe	$SecondFrame::sFrame.lfTabs	-borderwidth 5	-relief groove]
 	SecondFrame::add $wPath 4
 	
 		label				$wPath.lBanner -text {Current Tabs}
@@ -1377,7 +1437,7 @@ namespace eval Tools {
 	Tooltip::new $wPath.bB1 {Guiding Horizontal Lines} {A grid's horizontal lines which facilitate writing text onto multiple lines.}
 }
 namespace eval Properties {
-	variable wPath [frame $SecondFrame::wPath.fProperties -borderwidth 2 -relief groove]
+	variable wPath [frame $SecondFrame::sFrame.fProperties -borderwidth 2 -relief groove]
 	SecondFrame::add $wPath 3
 	# Title & Separator
 	pack [label		$wPath.lBanner -text Properties] 						-side top -fill x
@@ -1437,7 +1497,7 @@ namespace eval Properties {
 	
 }
 namespace eval Sequence {
-	variable wPath [frame $SecondFrame::wPath.fSequence -borderwidth 2 -relief groove]
+	variable wPath [frame $SecondFrame::sFrame.fSequence -borderwidth 2 -relief groove]
 	SecondFrame::add $wPath 2
 	pack [frame 	$wPath.fBanner] -fill x
 	pack [frame 	$wPath.fRest] -fill both
@@ -1551,9 +1611,8 @@ proc doLast {} {
 	
 	CustomSave::configure
 	
-	.pwPane add $SecondFrame::wPath -sticky nswe
+	$MainPane::wPath add $SecondFrame::wPath -sticky nswe
 	Toolbar::wPath2Config
-	
 	
 }
 
