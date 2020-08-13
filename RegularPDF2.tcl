@@ -111,7 +111,7 @@ namespace eval SecondFrame {
 				#grid configure $path -row $start -column $column -sticky nswe
 				#grid rowconfigure $SecondFrame::sFrame $start -weight 1 -uniform 1
 				#grid columnconfigure $SecondFrame::sFrame $column -weight 0 -uniform 1
-				#puts [list x-y $x $y $path $canFit]
+				puts [list x-y $x $y $path $canFit]
 				incr x $maxWidth
 			}
 			
@@ -129,10 +129,11 @@ namespace eval SecondFrame {
 		#set args [concat $lst $args]
 		set children [grid slaves $SecondFrame::sFrame]
 		foreach path $lst {
-			#Util::verbose
+			#
 			if {$path ni $children} {continue}
-			grid rowconfigure $SecondFrame::sFrame $path -weight 0 -uniform 0
-			grid columnconfigure $SecondFrame::sFrame $path -weight 0 -uniform 0
+			#Util::verbose
+			#grid rowconfigure $SecondFrame::sFrame $path -weight 0 -uniform 0
+			#grid columnconfigure $SecondFrame::sFrame $path -weight 0 -uniform 0
 			grid forget $path
 			
 			
@@ -1222,7 +1223,7 @@ namespace eval Toolbar {
 		set width [winfo width $SecondFrame::wPath]
 		set canFit [expr {$width / $Toolbar::maxWidth}]
 		
-		#Util::verbose
+		#Util::verbose $Toolbar::paneMapNames $Toolbar::paneMapPaths
 		set yes [list]
 		set no [list]
 		foreach i $Toolbar::paneRanges {
@@ -1230,12 +1231,12 @@ namespace eval Toolbar {
 			lappend [lindex [list no yes ] [ReliefButton::isOn $Toolbar::f.bB$i]] [dict get $Toolbar::paneMapPaths $i]
 			
 		}
-		#puts [list canFit $canFit \n]
+		puts [list canFit $canFit \n]
 		#Util::verbose
 		#SecondFrame::show [Util::range 1 $canFit]
 		#SecondFrame::hide [Util::range [expr {$canFit + 1 }] $Toolbar::paneCount]
 	
-		set canFit [expr {$canFit > $Toolbar::paneCount ? $Toolbar::paneCount : $canFit }]
+		set canFit [::tcl::mathfunc::min [llength $yes] $canFit ]
 	
 		SecondFrame::show $yes $canFit
 		SecondFrame::hide $no
@@ -1243,9 +1244,9 @@ namespace eval Toolbar {
 	}
 	
 	proc indexToPath [list index] {
-		
+		#Util::verbose Toolbar::paneMapNames Toolbar::paneMapPaths
 		set i [dict get $Toolbar::paneMapPaths $index]
-		#Util::verbose
+		#
 		return $i
 	}
 } ; # End of Toolbar
@@ -1373,7 +1374,7 @@ namespace eval Draw {
 		variable ::Draw::fHeight [dict get [font metrics $::Draw::f] -linespace]
 		lassign 				[$Draw::wPath.cC coords {all} ] {} {} ::Draw::cW ::Draw::cH
 		variable ::Draw::cW [::tcl::mathfunc::int $Draw::cW] ::Draw::cH [::tcl::mathfunc::int $Draw::cH]
-		$Tools::wPath.bB1 invoke
+		#$Tools::wPath.bB1 invoke
 		bind $Draw::wPath.cC <Map> {}
 	}
 }
@@ -1437,11 +1438,13 @@ namespace eval Tools {
 	Tooltip::new $wPath.bB1 {Guiding Horizontal Lines} {A grid's horizontal lines which facilitate writing text onto multiple lines.}
 }
 namespace eval Properties {
-	variable wPath [frame $SecondFrame::sFrame.fProperties -borderwidth 2 -relief groove]
+	variable \
+	wPath [frame $SecondFrame::sFrame.fProperties -borderwidth 2 -relief groove] \
+	labelToWidget [dict create]
 	SecondFrame::add $wPath 3
 	# Title & Separator
-	pack [label		$wPath.lBanner -text Properties] 						-side top -fill x
-	pack [ttk::separator		$wPath.ttkspLine -orient horizontal] 		-side top -fill x -pady [list 0 0.25c]
+	pack [label	$wPath.lBanner -text Properties] -side top -fill x
+	pack [ttk::separator $wPath.ttkspLine -orient horizontal] -side top -fill x -pady [list 0 0.25c]
 	label $wPath.lClear -text {No Object is currently selected}
 
 	frame 		$wPath.fInfo
@@ -1456,36 +1459,53 @@ namespace eval Properties {
 		if {{$Properties::wPath.fInfo} in [pack slaves $Properties::wPath]} return
 		pack forget $Properties::wPath.lClear
 		pack $Properties::wPath.fInfo								-side top -fill both
-		grid columnconfigure $Properties::wPath.fInfo 1 			-weight 1
+		grid columnconfigure $Properties::wPath.fInfo 2 			-weight 1
 		grid $Properties::wPath.fInfo.lLabelName 					-row 0 -column 0 -sticky w
-		grid $Properties::wPath.fInfo.lName							-row 0 -column 1 -sticky w
+		grid $Properties::wPath.fInfo.lName							-row 0 -column 2 -sticky w
 		grid $Properties::wPath.fInfo.lLabelType					-row 1 -column 0 -sticky w
-		grid $Properties::wPath.fInfo.lType							-row 1 -column 1 -sticky w
+		grid $Properties::wPath.fInfo.lType							-row 1 -column 2 -sticky w
+		grid columnconfigure $Properties::wPath.fInfo 1 -weight 1
 	}
 	proc map [list realId namespaceName] {
+		
 		Properties::restore
-		$Properties::wPath.fInfo.lName config -text #$realId
-		$Properties::wPath.fInfo.lType config -text $namespaceName
-		upvar 1 "${namespaceName}::supported" supported
 		set all [lrange [winfo children $Properties::wPath.fInfo ] 4 end]
-		#error [list all -> $all]
-		expr {$all eq {}? {concat concat} : {grid forget {*}$all} }
+		if {$all ne {}} {grid forget {*}$all}
+		Properties::name $realId
+		Properties::type $namespaceName
 		set count 2
-		#error [list supported -> $supported]
-		foreach e $supported {
-			#puts [list SupportedProperty -> $e]
-			if ![winfo exists $Properties::wPath.fInfo.lLabel$e] {
-				#puts [list LabelForPropertyNotFound $e]
-				label $Properties::wPath.fInfo.lLabel$e -text "Object's $e"
-				label $Properties::wPath.fInfo.l$e -text {}
+		dict for {i j} [set ${namespaceName}::property] {
+			
+			set word $namespaceName^$i ;# HLines^Width
+			set call ${namespaceName}::$j ;# HLines::spin
+			if ![dict exists $Properties::labelToWidget $Properties::wPath.fInfo.lLabel$word] {
+				dict set Properties::labelToWidget $Properties::wPath.fInfo.lLabel$word [set w [$call new $Properties::wPath.fInfo $word $realId] ]
+				label $Properties::wPath.fInfo.lLabel$word -text "Object's $i"
+				
+			} else {
+				set w [dict get $Properties::labelToWidget $Properties::wPath.fInfo.lLabel$word]
 			}
-			$Properties::wPath.fInfo.l$e config -text [${namespaceName}::$e $realId]
-			grid $Properties::wPath.fInfo.l$e  		-row $count -column 1 -sticky w
-			grid $Properties::wPath.fInfo.lLabel$e 	-row $count -column 0 -sticky w
+			
+		
+			$call setFrom $w $i $realId
+			
+			grid $w -row $count -column 2 -sticky w
+			grid $Properties::wPath.fInfo.lLabel$word -row $count -column 0 -sticky w
 			incr count
-		}
+		} ; #End dict for
 		
 	}
+	proc name [list [list passed {}]] {
+		
+		return [$Properties::wPath.fInfo.lName {*}[expr {$passed ne {} ? "config -text #$passed" : {cget -text} }] ]
+	}
+	
+	proc type [list [list passed {}]] {
+	
+		return [$Properties::wPath.fInfo.lType {*}[expr {$passed ne {} ? "config -text $passed" : {cget -text} }] ]
+	}
+	 
+	
 	proc clear {} {
 		$Properties::wPath.lClear config -wraplength [winfo width $Properties::wPath]
 		$Properties::wPath.lClear config -state disabled
@@ -1497,53 +1517,54 @@ namespace eval Properties {
 	
 }
 namespace eval Sequence {
-	variable wPath [frame $SecondFrame::sFrame.fSequence -borderwidth 2 -relief groove]
+	variable \
+	wPath [frame $SecondFrame::sFrame.fSequence -borderwidth 2 -relief groove] \
+	colCount 4 \
+	colList [list 0 1 2 3] \
+	colLabels [list Order {Instance Type} {Instance Count} Tag]
+	
 	SecondFrame::add $wPath 2
-	pack [frame 	$wPath.fBanner] -fill x
-	pack [frame 	$wPath.fRest] -fill both
-	pack [label	$wPath.fBanner.lLTitle -text {Objects Sequence}] -fill x -expand 1
-	pack [ttk::separator		$wPath.fBanner.ttspLine -orient horizontal] -fill x -pady [list 0 0.25c]
-	# order -> order in object class' (objects dict) ; ;
-	variable objects [dict create] types [dict create] count 0
 	
-	# Headers
-	grid [label $wPath.fRest.lH0 -text {Order}] -row 0 -column 0 -sticky we
-	grid [label $wPath.fRest.lH1 -text {Instance Type}] -row 0 -column 2 -sticky we
-	grid [label $wPath.fRest.lH2 -text {Instance Count}] -row 0 -column 4 -sticky we
+	variable \
+	tree [ttk::treeview $wPath.ttktrTree -columns $colList] \
+	orderToId [dict create] \
+	orderToType [dict create] \
+	count 0
 	
-	grid [ttk::separator $wPath.fRest.ttkspH0 -orient vertical] -row 0 -column 1 -sticky ns
-	grid [ttk::separator $wPath.fRest.ttkspH1 -orient vertical] -row 0 -column 3 -sticky ns
+	pack $tree -expand 1 -fill both 
 	
-	grid columnconfigure $Sequence::wPath.fRest 2 -weight 1
-	grid columnconfigure $Sequence::wPath.fRest 4 -weight 1
+	foreach i $colList j $colLabels {$tree heading $i -text $j -anchor center ; $tree column $i -anchor center}
 	
-	proc add [list realId namespaceName] {
-		dict set Sequence::objects $Sequence::count $realId
-		dict set Sequence::types $realId $namespaceName
-		incr Sequence::count
-		set Ls [list \
-				$Sequence::wPath.fRest.lCount$Sequence::count \
-				$Sequence::wPath.fRest.lType$Sequence::count \
-				$Sequence::wPath.fRest.lRealId$Sequence::count ]
-		grid	[label [lindex $Ls 0] -text $Sequence::count] 									-sticky we -row $Sequence::count -column 0
-		grid	[ttk::separator $Sequence::wPath.fRest.ttkspLine${Sequence::count}1	-orient vertical ] -sticky ns 			-row $Sequence::count -column 1
-		grid	[label [lindex $Ls 1] -text "$namespaceName"]  			-sticky we	-row $Sequence::count -column 2
-		grid	[ttk::separator $Sequence::wPath.fRest.ttkspLine${Sequence::count}3	-orient vertical ] -sticky ns			-row $Sequence::count -column 3
-		grid	[label [lindex $Ls 2] -text "Instance #$realId"] 					-sticky we	-row $Sequence::count -column 4
-		
-		set command [concat [join [lmap i $Ls {concat "$i config -state active ; "}] ]  " ; Properties::map $realId $namespaceName"]
-		#error [list command -> $command]
-		foreach e $Ls {
-				$e config -activebackground [.mRoot.mHelp cget -activebackground]
-				$e config -activeforeground [.mRoot.mHelp cget -activeforeground]
-				bind $e <ButtonPress> $command
-		}
+	$tree column #0 -width 0
+	
+	
+	bind $tree <Button> {
+		puts [list [set colId [%W identify row %x %y]]]
+		set values [%W item $colId -values]
+		Properties::map [string range [lindex $values 2] 1 end] [lindex $values 1] }
+	
+	# id -> realId ; type -> namespace
+	proc add [list id type] {
+		dict set Sequence::orderToId [incr Sequence::count ] $id
+		dict set Sequence::orderToType $Sequence::count  $type
+		$Sequence::tree insert {} $Sequence::count -id $type$id -values [list $Sequence::count $type #$id {}]
 	}
-
 }
 namespace eval HLines {
 	# objId -> [list id1 id2] ; count ; object's abbreviated name ; ; List of supported Properties besides Name (realId) and Type (namespaceName)
-	variable objects [dict create] count 0 abbreaviatedName {HL}  supported [list Width Height X Y] Width [dict create] Height [dict create] X [dict create] Y [dict create]
+	variable \
+	objects [dict create] \
+	count 0 \
+	propertyAdditional [list {} {} Coordinate Coordinate] \
+	property [dict create Width spin Height spin X spin Y spin Line_Space spin] \
+	Width [dict create] \
+	Height [dict create] \
+	X [dict create] \
+	Y [dict create] \
+	Line_Space [dict create]
+	
+	namespace eval TextVariable {
+	}
 	
 	proc new [list [list x {}] [list y {}]] {
 		set x [expr { $x eq {} ? $Draw::cX : $x}]
@@ -1564,8 +1585,29 @@ namespace eval HLines {
 		dict set HLines::Height 	$HLines::count $height
 		dict set HLines::X 			$HLines::count $x
 		dict set HLines::Y 			$HLines::count $y
+		dict set HLines::Line_Space $HLines::count $::Draw::fHeight
 		Sequence::add $HLines::count HLines
 		incr HLines::count
+	}
+	proc spin [list args] {
+		switch [lindex $args 0] {
+			new {
+				lassign $args {} parent word id
+				variable ::HLines::TextVariable::#$id
+				set w [spinbox $parent.s$word -from -inf -to inf]
+				return $w
+			}
+			setFrom {
+				lassign $args {} widget prop id
+				#Util::verbose
+				set ::HLines::TextVariable::$prop#$id [HLines::$prop $id]
+				$widget config -textvariable HLines::TextVariable::$prop#$id
+				#eputs [HLines::$prop $id]
+				
+			}
+		}
+		
+		
 	}
 	proc Width id {
 		return [dict get $HLines::Width $id]
@@ -1579,7 +1621,9 @@ namespace eval HLines {
 	proc Y id {
 		return [dict get $HLines::Y $id]
 	}
-
+	proc Line_Space id {
+		return [dict get $HLines::Line_Space $id]
+	}
 }
 
 
