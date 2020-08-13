@@ -932,6 +932,7 @@ namespace eval Menu {
 				9 {Add New Page Below} \
 				10 Delete \
 				11 Move  \
+				12 {Restore Default} \
 				] \
 	\
 	commands [dict create \
@@ -946,6 +947,7 @@ namespace eval Menu {
 			9 {$whoobject down $whocalled} \
 			10 { puts .mDoc_delete} \
 			11 {$whoobject rename $whocalled } \
+			12 {} \
 			] \
 	\
 	cascades [dict create \
@@ -960,12 +962,14 @@ namespace eval Menu {
 			9 {} \
 			10 {} \
 			11 {} \
+			12 {} \
 	] \
 	all [dict create \
 	.mRoot 			[dict create 0 {3} 1 {2} 2 {1} commands [list 0 1] separators [list ] cascades [list 2] ] \
 	.mDocument 		[dict create 0 {5} 1 {6} 2 {7} commands [list 0 1 2] cascades [list ] separators [list ] ] \
 	.mPage 			[dict create 0 {8} 1 {9} 2 {x} 3 {10} 4 {11} commands [list 0 1 3 4] cascades [list ] separators [list 2] ] \
 	.mRoot.mHelp 	[dict create 0 {4} commands [list 0] cascades [list ] separators [list ] ] \
+	.mProperties	[dict create 0 {12} commands [list 0] cascades [list ] separators [list ] ] \
 	]
 	
 	# creation
@@ -1459,17 +1463,18 @@ namespace eval Properties {
 		if {{$Properties::wPath.fInfo} in [pack slaves $Properties::wPath]} return
 		pack forget $Properties::wPath.lClear
 		pack $Properties::wPath.fInfo								-side top -fill both
-		grid columnconfigure $Properties::wPath.fInfo 2 			-weight 1
+		grid columnconfigure $Properties::wPath.fInfo 1 			-weight 1
+		grid columnconfigure $Properties::wPath.fInfo [list 2 3]	-weight 0
 		grid $Properties::wPath.fInfo.lLabelName 					-row 0 -column 0 -sticky w
 		grid $Properties::wPath.fInfo.lName							-row 0 -column 2 -sticky w
 		grid $Properties::wPath.fInfo.lLabelType					-row 1 -column 0 -sticky w
 		grid $Properties::wPath.fInfo.lType							-row 1 -column 2 -sticky w
-		grid columnconfigure $Properties::wPath.fInfo 1 -weight 1
+		
 	}
 	proc map [list realId namespaceName] {
 		
 		Properties::restore
-		set all [lrange [winfo children $Properties::wPath.fInfo ] 4 end]
+		set all [lrange [winfo children $Properties::wPath.fInfo ] 5 end]
 		if {$all ne {}} {grid forget {*}$all}
 		Properties::name $realId
 		Properties::type $namespaceName
@@ -1491,6 +1496,7 @@ namespace eval Properties {
 			
 			grid $w -row $count -column 2 -sticky w
 			grid $Properties::wPath.fInfo.lLabel$word -row $count -column 0 -sticky w
+			grid [button $Properties::wPath.fInfo.bMenu$word -text $Icon::Unicode::3Dots -command "Menu::post $Properties::wPath.fInfo.bMenu$word .mProperties"] -row $count -column 3 -sticky e
 			incr count
 		} ; #End dict for
 		
@@ -1609,19 +1615,20 @@ namespace eval HLines {
 		
 		
 	}
-	proc Width id {
+	proc Width [list id ] {
 		return [dict get $HLines::Width $id]
 	}
-	proc Height id {
+	proc Height [list id] {
 		return [dict get $HLines::Height $id]
 	}
-	proc X id {
+	proc X [list id] {
 		return [dict get $HLines::X $id]
 	}
-	proc Y id {
+	proc Y [list id] {
 		return [dict get $HLines::Y $id]
 	}
-	proc Line_Space id {
+	proc Line_Space [list id] {
+		
 		return [dict get $HLines::Line_Space $id]
 	}
 }
