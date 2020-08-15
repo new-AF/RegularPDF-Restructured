@@ -15,6 +15,7 @@ package require Tk
 # m		=> 	Menu
 # pw 	=>	PanedWindow
 # sb	=>	Scrollbar
+# rb	=> 	ReliefButton
 # tl	=>	Toplevel
 # ttknb	=>	ttk::notebook
 # ttkSG =>	ttk::sizegrip
@@ -187,7 +188,8 @@ namespace eval Icon {
 		DoubleHeadedArrow	"\u2194" \
 		NewWindow			"\ud83d\uddd7" \
 		HorizontalLines		"\u25a4" \
-		Check				"\u2713"
+		Check				"\u2713" \
+		Plus				"\u2795"
 	}
 }
 namespace eval Util {
@@ -423,7 +425,7 @@ Variables 	-> ($vars)"
 			}
 		}
 	}
-
+	
 
 } ; # End of namespace
 namespace eval ReliefButton {
@@ -455,6 +457,32 @@ namespace eval ReliefButton {
 		#Util::verbose
 		$path config -text [lindex [list [concat $Icon::Unicode::Check $text] [lrange $text 1 end]] $bool]  
 	}
+}
+namespace eval HButtonNS {
+	# Highligh Button
+	set colorLeave [[button .b123456789 -text {} ] cget -background]
+	set colorEnter SkyBlue1; #systemHighlight
+	
+	bind HButton <Enter> "%W config -background {$colorEnter}"
+	
+	bind HButton <Leave> "%W config -background {$colorLeave}"
+	
+	proc doThisOn [list args] {
+		foreach _button $args {
+			if {{HButton} ni [set all [bindtags $_button]]} {
+				bindtags $_button [linsert $all 1 HButton]
+				#puts [list tags -> [bindtags $_button]]
+			}
+		}
+	}
+	proc new [list args] {
+		set _button [button {*}$args]
+		HButtonNS::doThisOn $_button
+		return $_button
+	}
+}
+proc HButton [list args] {
+	HButtonNS::new {*}$args
 }
 namespace eval CustomSave {
 	variable name
@@ -926,7 +954,7 @@ namespace eval Menu {
 				3 Console \
 				4 About \
 				5 New  \
-				6 Clone \
+				6 {Make a Clone} \
 				7 Close \
 				8 {Add New Page Above} \
 				9 {Add New Page Below} \
@@ -966,8 +994,8 @@ namespace eval Menu {
 	] \
 	all [dict create \
 	.mRoot 			[dict create 0 {3} 1 {2} 2 {1} commands [list 0 1] separators [list ] cascades [list 2] ] \
-	.mDocument 		[dict create 0 {5} 1 {6} 2 {7} commands [list 0 1 2] cascades [list ] separators [list ] ] \
-	.mPage 			[dict create 0 {8} 1 {9} 2 {x} 3 {10} 4 {11} commands [list 0 1 3 4] cascades [list ] separators [list 2] ] \
+	.mDocument 		[dict create 0 {6} 1 {x} 2 {7} commands [list 0 2 ] cascades [list ] separators [list 1] ] \
+	.mPage 			[dict create 0 {8} 1 {x} 2 {9} 3 {x} 4 {11} 5 {x} 6 {10} commands [list 0 2 4 6] cascades [list ] separators [list 1 3 5] ] \
 	.mRoot.mHelp 	[dict create 0 {4} commands [list 0] cascades [list ] separators [list ] ] \
 	.mProperties	[dict create 0 {12} commands [list 0] cascades [list ] separators [list ] ] \
 	]
@@ -991,9 +1019,7 @@ namespace eval Menu {
 	}
 
 } ; # end Menu
-namespace eval Menu::DocPage {
-	#Todo: later
-}
+
 namespace eval Toolbar {
 
 	variable borderWidth 0
@@ -1010,7 +1036,9 @@ namespace eval Toolbar {
 	wPath2 [panedwindow .pwPane2 -background green -sashpad 0 -sashwidth 0] \
 	maxWidth {No} \
 	paneNames [list Files Sequence Properties Tabs] \
-	onceStopsId {No} 
+	onceStopsId {No} \
+	_DrawBarRow -1 \
+	_DrawBarColumn -1 \
 	
 	variable stop no
 	
@@ -1026,10 +1054,11 @@ namespace eval Toolbar {
 	pack 		$wPath -side top  -fill x
 	pack 		$wPath2 -side top -fill x
 	
+	$Toolbar::wPath2 add [frame $Toolbar::wPath2.fDrawBar]
 	
 	proc wPath2Config {} {
-		$Toolbar::wPath2 add [label $Toolbar::wPath2.l -text X]
-		foreach i [list 1 2 3 4] color [list black green red yellow] bName $Toolbar::paneNames {
+		
+		foreach i $Toolbar::paneRanges color [list black green red yellow] bName $Toolbar::paneNames {
 			grid [Toolbar::newPayload $Toolbar::f.bB$i -Type ReliefButton::new -text $bName -relief groove -WhenOn "Toolbar::assess" -WhenOff "Toolbar::assess"] -row 0 -column $i -sticky nswe
 			#grid [Toolbar::newPayload $Toolbar::f.lL$i -Type label -text {} -background $color				] -row 1 -column $i -sticky nsw
 		}
@@ -1253,6 +1282,19 @@ namespace eval Toolbar {
 		#
 		return $i
 	}
+	
+	proc addToDrawBar [list name args] {
+		switch [string index $name 0] {
+			b {
+				set w [button $Toolbar::wPath2.fDrawBar.$name {*}$args]
+			}
+			
+		}
+		grid $w -row [incr Toolbar::_DrawBarRow] -column [incr Toolbar::_DrawBarColumn] -sticky nswe
+		grid columnconfigure $Toolbar::wPath2.fDrawBar all -weight 1 -uniform 1
+		grid rowconfigure $Toolbar::wPath2.fDrawBar all -weight 1 -uniform 1
+	}
+
 } ; # End of Toolbar
 
 Toolbar::newPayload $Toolbar::wPath.bButton1 -relief raised -text 123 -WithSeparator 1 -Type button pack
@@ -1307,80 +1349,72 @@ namespace eval DartButton {} {
 
 }
 
-namespace eval Tabs {
-	variable wPath [labelframe	$SecondFrame::sFrame.lfTabs	-borderwidth 5	-relief groove]
-	SecondFrame::add $wPath 4
-	
-		label				$wPath.lBanner -text {Current Tabs}
-		ttk::separator		$wPath.ttkspLine -orient horizontal
-		grid				$wPath.lBanner 	-row 0 -column 0 -columnspan 2 -sticky nswe
-		grid				$wPath.ttkspLine -row 1 -column 0 -columnspan 2 -sticky nswe
-		grid columnconfigure $Tabs::wPath 0 -weight 1
-	button		$wPath.bB0	-text {Create New Document}		-command Tabs::newDocument
-	grid		$wPath.bB0	-row 2	-column	0	-columnspan 2 -sticky nswe
-	
-	variable 	documentRowBegin [dict create]		documentRowEnd		[dict create]		documentPageCount [dict create ]		documentCount 0		pages [dict create]		pagesCount 0 	newRow 3
-	
-	proc newDocument {} {
-		
-		incr Tabs::documentCount
-		dict set documentRowBegin $Tabs::documentCount	$Tabs::newRow
-		dict set documentRowEnd $Tabs::documentCount $Tabs::newRow
-		button		$Tabs::wPath.bD$Tabs::documentCount	-text "Blank Document $Tabs::documentCount"
-		button		$Tabs::wPath.bDM$Tabs::documentCount	-text $Icon::Unicode::3Dots		-command "Menu::post $Tabs::wPath.bDM$Tabs::documentCount .mDocument"	
-		
-		grid 		$Tabs::wPath.bD$Tabs::documentCount 	-row $Tabs::newRow	-column 0	-sticky we	-pady [list 0.5c 0]
-		grid 		$Tabs::wPath.bDM$Tabs::documentCount 	-row $Tabs::newRow	-column 1	-sticky es
-		
-		incr Tabs::newRow
-		Tabs::newPage $Tabs::newRow
-	}
-	proc newPage row {
-		
-		incr 		Tabs::pagesCount
-		dict incr Tabs::documentRowEnd $Tabs::documentCount
-		if ![dict exists $Tabs::documentPageCount $Tabs::documentCount] {dict set Tabs::documentPageCount $Tabs::documentCount 1} else {dict incr Tabs::documentPageCount $Tabs::documentCount}
-		# page No.
-		set no [dict get $Tabs::documentPageCount $Tabs::documentCount]
-		#
-		button		$Tabs::wPath.bP$Tabs::documentCount/$no					-text "Page $no"
-		button		$Tabs::wPath.bPM$Tabs::documentCount/$no					-text $Icon::Unicode::3Dots		-command "Menu::post $Tabs::wPath.bPM$Tabs::documentCount/$no .mPage"
-		grid		$Tabs::wPath.bP$Tabs::documentCount/$no					-row $row	-column 0 	-sticky we	-padx [list 0.5c 0]
-		grid		$Tabs::wPath.bPM$Tabs::documentCount/$no					-row $row	-column 1	-sticky	e
-		incr Tabs::newRow
-	}
 
-
-} ; # End of Tabs
 
 namespace eval Draw {
-	variable wPath [labelframe $MainPane::wPath.lfCanvas]
+	variable \
+	wPath [labelframe $MainPane::wPath.lfCanvas]
+	
 	.pwPane	add $wPath -sticky nswe -stretch always
+	
 	canvas		$wPath.cC
+	
 	scrollbar	$wPath.sbV -orient vertical -command {$Draw::wPath.cC yview}
 	scrollbar	$wPath.sbH -orient horizontal -command {$Draw::wPath.cC xview}
+	
 	pack $wPath.sbV -side right -fill y
+	
 	pack $wPath.sbH -side bottom -fill x
+	
 	pack $wPath.cC -side left -fill both
 	
 	$wPath.cC configure -xscrollcommand {$Draw::wPath.sbH set} -yscrollcommand {$Draw::wPath.sbV set}
-	bind $wPath.cC <Configure> {%W configure -scrollregion [%W bbox all]}
 	
+	bind $wPath.cC <Configure> Draw::onConfigure
 	
-	# new page
-	$wPath.cC 	create rectangle [list 11 11 300 500] -fill {} -outline black
-	#variable tTest		$wPath.cC create text 8 8 -text 123
-	#puts ==[$wPath.cC itemcget [] -font]==
-	bind $wPath.cC <Map> {
-		variable ::Draw::cX 	[$Draw::wPath.cC canvasx 0] ::Draw::cY [$Draw::wPath.cC canvasy 0]
-		variable ::Draw::tTest 	[$Draw::wPath.cC create text $Draw::cX $Draw::cY -text test -fill {}]
-		variable ::Draw::f 		[$Draw::wPath.cC itemcget $Draw::tTest -font]
-		variable ::Draw::fHeight [dict get [font metrics $::Draw::f] -linespace]
-		lassign 				[$Draw::wPath.cC coords {all} ] {} {} ::Draw::cW ::Draw::cH
-		variable ::Draw::cW [::tcl::mathfunc::int $Draw::cW] ::Draw::cH [::tcl::mathfunc::int $Draw::cH]
-		#$Tools::wPath.bB1 invoke
-		bind $Draw::wPath.cC <Map> {}
+	Util::bindOnce $wPath.cC Map Draw::onMap
+	
+	proc onMap {} {
+		variable \
+		::Draw::textTest 	[$Draw::wPath.cC create text 0 0 -text test -fill {}]
+		variable \
+		::Draw::font 		[$Draw::wPath.cC itemcget $Draw::textTest -font] 
+		variable \
+		::Draw::fontHeight [dict get [font metrics $::Draw::font] -linespace]
 	}
+	
+	proc onConfigure {} {
+		puts Configured
+		$Draw::wPath.cC configure -scrollregion [$Draw::wPath.cC bbox all]
+		variable \
+		::Draw::cW		[winfo width $Draw::wPath.cC] \
+		::Draw::cH		[winfo height $Draw::wPath.cC] \
+		::Draw::cZeroX		[$Draw::wPath.cC canvasx 0] \
+		::Draw::cZeroY 		[$Draw::wPath.cC canvasy 0] \
+		#puts [list Draw Configure]
+		#eputs $Draw::pCoords
+	}
+	
+	Toolbar::addToDrawBar bCenter -text {Center Document} -command Draw::centerDocument
+	
+	proc centerDocument {} {
+		#Draw::updateAndExtractCoords
+		puts Created
+		set x [expr {$Draw::cW /2 - $Draw::pW/2}]
+		set y [expr {$Draw::cH/2 - $Draw::pH/2}]
+		$Draw::wPath.cC moveto all $x $y
+		#[set y [expr { $y? :}]]
+	}
+	proc updateAndExtractCoords {} {
+		Draw::onConfigure
+		foreach i $Draw::pCoords j [list pX pY pX2 pY2] {
+			variable ::Draw::$j [::tcl::mathfunc::int $i]
+		}
+		variable \
+		::Draw::pH [expr {int($Draw::pY2 - $Draw::pY)}] \
+		::Draw::pW [expr {int($Draw::pX2 - $Draw::pX)}]
+	}
+	
 }
 
 namespace eval Tooltip  {
@@ -1437,7 +1471,7 @@ namespace eval Tools {
 	variable wPath [frame	$Draw::wPath.fTools -borderwidth 2 -relief groove]
 	pack $wPath -side left -fill y -before $Draw::wPath.cC
 	pack [label 			$wPath.lL -text Tools]
-	pack [ttk::separator	$wPath.sLine0 -orient horizontal] -fill x
+	pack [ttk::separator	$wPath.ttkspH -orient horizontal] -fill x
 	pack [button			$wPath.bB1 -text $Icon::Unicode::HorizontalLines -command {HLines::new}  -relief flat -overrelief groove] -fill x
 	Tooltip::new $wPath.bB1 {Guiding Horizontal Lines} {A grid's horizontal lines which facilitate writing text onto multiple lines.}
 }
@@ -1484,7 +1518,7 @@ namespace eval Properties {
 			set word $namespaceName^$i ;# HLines^Width
 			set call ${namespaceName}::$j ;# HLines::spin
 			if ![dict exists $Properties::labelToWidget $Properties::wPath.fInfo.lLabel$word] {
-				dict set Properties::labelToWidget $Properties::wPath.fInfo.lLabel$word [set w [$call new $Properties::wPath.fInfo $word $realId] ]
+				dict set Properties::labelToWidget $Properties::wPath.fInfo.lLabel$word [set w [$call new $Properties::wPath.fInfo $i $realId] ]
 				label $Properties::wPath.fInfo.lLabel$word -text "Object's $i"
 				
 			} else {
@@ -1545,7 +1579,7 @@ namespace eval Sequence {
 	
 	
 	bind $tree <Button> {
-		puts [list [set colId [%W identify row %x %y]]]
+		#puts [list [set colId [%W identify row %x %y]]]
 		set values [%W item $colId -values]
 		Properties::map [string range [lindex $values 2] 1 end] [lindex $values 1] }
 	
@@ -1554,6 +1588,56 @@ namespace eval Sequence {
 		dict set Sequence::orderToId [incr Sequence::count ] $id
 		dict set Sequence::orderToType $Sequence::count  $type
 		$Sequence::tree insert {} $Sequence::count -id $type$id -values [list $Sequence::count $type #$id {}]
+	}
+}
+
+namespace eval Document {
+	variable \
+	activeDocCount {} \
+	
+	variable 	documentRowBegin [dict create]		documentRowEnd		[dict create]		documentPageCount [dict create ]		documentCount 0
+	
+	proc new {} {
+		incr Document::documentCount
+		dict set documentRowBegin $Document::documentCount	$Tabs::newRow
+		dict set documentRowEnd $Document::documentCount $Tabs::newRow
+		
+		
+		#set _return [list $a $b]
+		
+		Tabs::newDocument
+		
+		Page::new $Document::documentCount no
+		#Tabs::newPage [incr Tabs::newRow]
+		
+		#return $_return
+	}
+}
+namespace eval Page {
+	variable \
+	count 0 \
+	startX 11 \
+	startY 11 \
+	x [dict create] \
+	y [dict create] \
+	w [dict create] \
+	h [dict create] \
+	padY 50
+	
+	proc new [list docCount _row [list w 300] [list h 500] ] {
+		set Page::startY [winfo y $Tools::wPath.ttkspH]
+		incr Page::count
+		
+		set x2 [expr {$Page::startX + $w}]
+		set y2 [expr {$Page::startY + $h}]
+		$Draw::wPath.cC create rectangle [list $Page::startX $Page::startY $x2 $y2 ] -fill {} -outline black -tag [list page$Page::count]
+		foreach i [list x y w h] j [list Page::startX Page::startY w h ] {
+			dict set Page::$i $Page::count [set $j]
+		}
+		incr Page::startY $Page::padY
+		incr Page::startY $h
+		
+		Tabs::newPage $docCount $_row
 	}
 }
 namespace eval HLines {
@@ -1572,35 +1656,39 @@ namespace eval HLines {
 	namespace eval TextVariable {
 	}
 	
-	proc new [list [list x {}] [list y {}]] {
-		set x [expr { $x eq {} ? $Draw::cX : $x}]
-		set height [expr {$y eq {} ? $Draw::cH : ($Draw::cH - $y)}]
-		set y [expr { $y eq {} ? $Draw::cY : $y}]
+	
+	proc new [list page ] {
+		lassign [$Draw::wPath.cC coords $page] x y x2 y2
+		#set x [expr { $x ? $x : $Draw::pX }]
+		#set height [expr {$y ? ($Draw::pH - $y) : $Draw::pH }]
+		#set y [expr { $y ? $y : $Draw::pY }]
+		set height [expr {$y2 - $y}]
 		
-		set howMany [expr {int(floor($height / $Draw::fHeight))}]
+		set howMany [expr {int(floor($height / $Draw::fontHeight))}]
 		set count 0
 		set objects [list]
 		# 1 line less
-		set start [expr {int($Draw::fHeight + $Draw::cY)}]
-		while {[incr count] < $howMany} {
-			lappend objects [$Draw::wPath.cC create line $x $start $Draw::cW $start -dash .]
-			incr start $Draw::fHeight
+		set start [expr {int($Draw::fontHeight + $y)}]
+		while {$count < $howMany} {
+			lappend objects [$Draw::wPath.cC create line $x $start $xy $start -dash .]
+			incr start $Draw::fontHeight
+			incr count
 		}
 		dict set HLines::objects	$HLines::count $objects
-		dict set HLines::Width 		$HLines::count [expr {int($Draw::cW - $x)}]
-		dict set HLines::Height 	$HLines::count $height
+		#dict set HLines::Width 		$HLines::count [expr {int($Draw::pageW - $x)}]
+		#dict set HLines::Height 	$HLines::count $height
 		dict set HLines::X 			$HLines::count $x
 		dict set HLines::Y 			$HLines::count $y
-		dict set HLines::Line_Space $HLines::count $::Draw::fHeight
+		dict set HLines::Line_Space $HLines::count $::Draw::fontHeight
 		Sequence::add $HLines::count HLines
 		incr HLines::count
 	}
 	proc spin [list args] {
 		switch [lindex $args 0] {
 			new {
-				lassign $args {} parent word id
+				lassign $args {} parent prop id
 				variable ::HLines::TextVariable::#$id
-				set w [spinbox $parent.s$word -from -inf -to inf]
+				set w [spinbox $parent.sHLines^$prop -from -inf -to inf -command "HLines::$prop $id %s" ]
 				return $w
 			}
 			setFrom {
@@ -1627,12 +1715,60 @@ namespace eval HLines {
 	proc Y [list id] {
 		return [dict get $HLines::Y $id]
 	}
-	proc Line_Space [list id] {
+	proc Line_Space [list id [list new {}]] {
 		
-		return [dict get $HLines::Line_Space $id]
+		return [expr {$new eq {} ? [dict get $HLines::Line_Space $id] : 
+			{123}} ]
 	}
 }
 
+namespace eval Tabs {
+	variable \
+	wPath [labelframe	$SecondFrame::sFrame.lfTabs	-borderwidth 5	-relief groove] \
+	newRow 3
+	SecondFrame::add $wPath 4
+	
+	grid	[label	$wPath.lBanner -text {Current Tabs}] 	-row 0 -column 0 -columnspan 2 -sticky nswe
+	grid	[button	$wPath.bAdd -text $Icon::Unicode::Plus -relief flat -overrelief groove -command Document::new]	-row 0 -column 2 -columnspan 1 -sticky e
+	
+	grid	[ttk::separator $wPath.ttkspH -orient horizontal] -row 1 -column 0 -columnspan 3 -sticky nswe
+	grid columnconfigure $Tabs::wPath 0 -weight 1 -uniform 1
+	grid columnconfigure $Tabs::wPath 1 -weight 2 -uniform 1
+	#grid	[button $wPath.bCreate -text {Create New Document} -command Tabs::newDocument -relief groove]	-row 2	-column	0	-columnspan 3 -sticky nswe
+	
+	
+	proc newDocument {} {
+		# a -> Page 1
+		# b -> ... (Dot Menu Button)
+		set a [radiobutton		$Tabs::wPath.bD$Document::documentCount		-text "Document $Document::documentCount" -indicatoron 0  -variable Document::activeDocCount -value [set Document::activeDocCount $Document::documentCount]]
+		set b [button		$Tabs::wPath.bDM$Document::documentCount	-text $Icon::Unicode::3Dots		-command "Menu::post $Tabs::wPath.bDM$Document::documentCount .mDocument" -relief flat -overrelief groove]
+		grid 		$a 	-row $Tabs::newRow	-column 0	-sticky we	-pady [list 0.5c 0] -columnspan 2
+		grid 		$b 	-row $Tabs::newRow	-column 2	-sticky es
+		
+		incr Tabs::newRow
+	}
+	proc newPage [list  docCount [list row no]] {
+		set row [expr {$row? $row :$Tabs::newRow}]
+		
+		dict incr Document::documentRowEnd $docCount
+		if ![dict exists $Document::documentPageCount $docCount] {dict set Document::documentPageCount $docCount 1} else {dict incr Document::documentPageCount $docCount}
+		# page No.
+		set no [dict get $Document::documentPageCount $docCount]
+		#
+		frame		$Tabs::wPath.fL$row
+		place [ttk::separator $Tabs::wPath.fL$row.ttkspV -orient vertical] -relx 0.5 -y 0  -relheight 0.6 -relwidth 0.1
+		place [ttk::separator $Tabs::wPath.fL$row.ttkspH -orient horizontal] -relx 0.5 -rely 0.6  -relheight 1 -relwidth 1
+		grid $Tabs::wPath.fL$row -row $row	-column 0	-sticky	nswe
+		#
+		button		$Tabs::wPath.bP$docCount/$no			-text "Page $no"  -relief flat -overrelief groove -anchor w
+		button		$Tabs::wPath.bPM$docCount/$no			-text $Icon::Unicode::3Dots -relief flat -overrelief groove	-command "Menu::post $Tabs::wPath.bPM$docCount/$no .mPage"
+		grid		$Tabs::wPath.bP$docCount/$no			-row $row	-column 1 	-sticky we
+		grid		$Tabs::wPath.bPM$docCount/$no			-row $row	-column 2	-sticky	e
+		incr Tabs::newRow
+	}
+
+
+} ; # End of Tabs
 
 proc doLast {} {
 	#create Menu Buttons/Blocks
@@ -1664,7 +1800,10 @@ proc doLast {} {
 	
 	$MainPane::wPath add $SecondFrame::wPath -sticky nswe
 	Toolbar::wPath2Config
+	#HButtonNS::doThisOn .fToolbar.bMB1
 	
+	# Todo: Fix Tooltip
+	Tooltip::new $Tabs::wPath.bAdd {Create a New Document} {}
 }
 
 
