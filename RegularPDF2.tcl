@@ -1593,7 +1593,8 @@ namespace eval Sequence {
 
 namespace eval Document {
 	variable \
-	activeDocCount {} \
+	activeDocCount No \
+	modded No
 	
 	variable 	documentRowBegin [dict create]		documentRowEnd		[dict create]		documentPageCount [dict create ]		documentCount 0
 	
@@ -1607,37 +1608,81 @@ namespace eval Document {
 		
 		Tabs::newDocument
 		
-		Page::new $Document::documentCount no
+		Page::new $Document::documentCount No
+		
+		Document::modDraw'sOnConfigure
+		
 		#Tabs::newPage [incr Tabs::newRow]
 		
 		#return $_return
 	}
+	proc bbox [list docCount] {
+		# No. of pages docCount has
+		if ![dict exists $Document::documentPageCount $docCount] {return}
+		set count [dict get $Document::documentPageCount $docCount]
+		# First page & last pages of $docCount
+		set a $docCount^1
+		set b $docCount^$count
+		set _return [list [dict get $Page::x $a] [dict get $Page::y $a] [dict get $Page::x2 $b] [dict get $Page::y2 $b] ]
+		#Util::verbose
+		return $_return
+		
+	}
+	proc modDraw'sOnConfigure {} {
+		# for true: $modded == 0 and $activeDocCount != 0
+		if {$Document::modded eq {No} && $Document::activeDocCount ne {No}} {
+			set _body [split [info body Draw::onConfigure] \n]
+			set _pattern {*$Draw::wPath.cC configure -scrollregion*\[*\]} 
+			#puts [list got -> $_body]
+			set i [lsearch -glob -nocase $_body $_pattern]
+			set command [lindex $_body $i]
+			#puts [list command -+ $command]
+			set j [string first { } $command [string first {-scrollregion} $command ]]
+			set Document::modded [string range $command $j+1 end]
+			set command [string replace $command $j+1 end {[Document::bbox $Document::activeDocCount]}]
+			#puts [list command ->> $command]
+			#puts [list j ->> $j modded -> $Document::modded command -> $command]
+			set _body [join [lreplace $_body $i $i $command ] \n]
+			proc ::Draw::onConfigure [info args Draw::onConfigure] $_body
+			#puts [info body Draw::onConfigure]
+		}
+	}
 }
 namespace eval Page {
 	variable \
-	count 0 \
+	origY No \
 	startX 11 \
 	startY 11 \
+	id [dict create] \
 	x [dict create] \
 	y [dict create] \
 	w [dict create] \
 	h [dict create] \
+	x2 [dict create] \
+	y2 [dict creat] \
 	padY 50
 	
 	proc new [list docCount _row [list w 300] [list h 500] ] {
-		set Page::startY [winfo y $Tools::wPath.ttkspH]
-		incr Page::count
-		
+		if !$Page::origY {
+			set Page::origY [winfo y $Tools::wPath.ttkspH]
+			set Page::startY $Page::origY
+		}
 		set x2 [expr {$Page::startX + $w}]
 		set y2 [expr {$Page::startY + $h}]
-		$Draw::wPath.cC create rectangle [list $Page::startX $Page::startY $x2 $y2 ] -fill {} -outline black -tag [list page$Page::count]
-		foreach i [list x y w h] j [list Page::startX Page::startY w h ] {
-			dict set Page::$i $Page::count [set $j]
+		if ![dict exists $Document::documentPageCount $docCount] {dict set Document::documentPageCount $docCount 1} else {dict incr Document::documentPageCount $docCount}
+		# page No.
+		set pageCount [dict get $Document::documentPageCount $docCount]
+		
+		set id [$Draw::wPath.cC create rectangle [list $Page::startX $Page::startY $x2 $y2 ] -fill {} -outline black]
+		$Draw::wPath.cC create text [expr $Page::startX +50] [expr $Page::startY + 50 ] -text "Document $docCount"
+		
+		foreach i [list x y w h id x2 y2] j [list Page::startX Page::startY w h id x2 y2] {
+			dict set Page::$i $docCount^$pageCount [set $j]
 		}
 		incr Page::startY $Page::padY
 		incr Page::startY $h
 		
-		Tabs::newPage $docCount $_row
+		Tabs::newPage $docCount $pageCount $_row
 	}
 }
 namespace eval HLines {
@@ -1738,22 +1783,28 @@ namespace eval Tabs {
 	
 	
 	proc newDocument {} {
+		
+		set Document::activeDocCount $Document::documentCount
+		# redundant; once is enough
+		Document::modDraw'sOnConfigure
 		# a -> Page 1
 		# b -> ... (Dot Menu Button)
-		set a [radiobutton		$Tabs::wPath.bD$Document::documentCount		-text "Document $Document::documentCount" -indicatoron 0  -variable Document::activeDocCount -value [set Document::activeDocCount $Document::documentCount]]
+		set a [radiobutton		$Tabs::wPath.bD$Document::documentCount		-text "Document $Document::documentCount" -indicatoron 0  -variable Document::activeDocCount -value $Document::documentCount  -command Draw::onConfigure]
+		# redundant 
+		# Draw::onConfigure
+		
 		set b [button		$Tabs::wPath.bDM$Document::documentCount	-text $Icon::Unicode::3Dots		-command "Menu::post $Tabs::wPath.bDM$Document::documentCount .mDocument" -relief flat -overrelief groove]
 		grid 		$a 	-row $Tabs::newRow	-column 0	-sticky we	-pady [list 0.5c 0] -columnspan 2
 		grid 		$b 	-row $Tabs::newRow	-column 2	-sticky es
 		
 		incr Tabs::newRow
 	}
-	proc newPage [list  docCount [list row no]] {
+	proc newPage [list  docCount pageCount [list row No]] {
 		set row [expr {$row? $row :$Tabs::newRow}]
 		
 		dict incr Document::documentRowEnd $docCount
-		if ![dict exists $Document::documentPageCount $docCount] {dict set Document::documentPageCount $docCount 1} else {dict incr Document::documentPageCount $docCount}
-		# page No.
-		set no [dict get $Document::documentPageCount $docCount]
+		
+		set no $pageCount
 		#
 		frame		$Tabs::wPath.fL$row
 		place [ttk::separator $Tabs::wPath.fL$row.ttkspV -orient vertical] -relx 0.5 -y 0  -relheight 0.6 -relwidth 0.1
