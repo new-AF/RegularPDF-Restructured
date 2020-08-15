@@ -1037,8 +1037,8 @@ namespace eval Toolbar {
 	maxWidth {No} \
 	paneNames [list Files Sequence Properties Tabs] \
 	onceStopsId {No} \
-	_DrawBarRow -1 \
-	_DrawBarColumn -1 \
+	_DrawBarRow 0 \
+	_DrawBarColumn 0 \
 	
 	variable stop no
 	
@@ -1264,7 +1264,7 @@ namespace eval Toolbar {
 			lappend [lindex [list no yes ] [ReliefButton::isOn $Toolbar::f.bB$i]] [dict get $Toolbar::paneMapPaths $i]
 			
 		}
-		puts [list canFit $canFit \n]
+		#puts [list canFit $canFit \n]
 		#Util::verbose
 		#SecondFrame::show [Util::range 1 $canFit]
 		#SecondFrame::hide [Util::range [expr {$canFit + 1 }] $Toolbar::paneCount]
@@ -1284,15 +1284,25 @@ namespace eval Toolbar {
 	}
 	
 	proc addToDrawBar [list name args] {
-		switch [string index $name 0] {
-			b {
-				set w [button $Toolbar::wPath2.fDrawBar.$name {*}$args]
-			}
+		set parent $Toolbar::wPath2.fDrawBar
+		set name [string replace $name [set i [string first # $name]] $i ${parent}.]
+		
+		if ![winfo exists ${parent}.l5] {
+			grid [label ${parent}.l5 -text {} -background [$parent cget -background]] -row 0 -column 5 -sticky we
+		}
+		set w [eval "$name $args"]
+		
+		if {[incr Toolbar::_DrawBarColumn] > 5} {
+			set Toolbar::_DrawBarColumn 0
+			incr Toolbar::_DrawBarRow
 			
 		}
-		grid $w -row [incr Toolbar::_DrawBarRow] -column [incr Toolbar::_DrawBarColumn] -sticky nswe
+		grid $w -row $Toolbar::_DrawBarRow -column $Toolbar::_DrawBarColumn -sticky nswe
 		grid columnconfigure $Toolbar::wPath2.fDrawBar all -weight 1 -uniform 1
+		# why is -unifor 0 necessary
+		grid columnconfigure $Toolbar::wPath2.fDrawBar 5 -weight 0 -uniform 0 -pad [expr {[$MainPane::wPath cget -sashpad] +[$MainPane::wPath cget -sashwidth]}]
 		grid rowconfigure $Toolbar::wPath2.fDrawBar all -weight 1 -uniform 1
+		
 	}
 
 } ; # End of Toolbar
@@ -1366,7 +1376,7 @@ namespace eval Draw {
 	
 	pack $wPath.sbH -side bottom -fill x
 	
-	pack $wPath.cC -side left -fill both
+	pack $wPath.cC -side left -expand 1 -fill both
 	
 	$wPath.cC configure -xscrollcommand {$Draw::wPath.sbH set} -yscrollcommand {$Draw::wPath.sbV set}
 	
@@ -1387,24 +1397,14 @@ namespace eval Draw {
 		puts Configured
 		$Draw::wPath.cC configure -scrollregion [$Draw::wPath.cC bbox all]
 		variable \
-		::Draw::cW		[winfo width $Draw::wPath.cC] \
-		::Draw::cH		[winfo height $Draw::wPath.cC] \
+		::Draw::cW		%w \
+		::Draw::cH		%h \
 		::Draw::cZeroX		[$Draw::wPath.cC canvasx 0] \
 		::Draw::cZeroY 		[$Draw::wPath.cC canvasy 0] \
 		#puts [list Draw Configure]
 		#eputs $Draw::pCoords
 	}
 	
-	Toolbar::addToDrawBar bCenter -text {Center Document} -command Draw::centerDocument
-	
-	proc centerDocument {} {
-		#Draw::updateAndExtractCoords
-		puts Created
-		set x [expr {$Draw::cW /2 - $Draw::pW/2}]
-		set y [expr {$Draw::cH/2 - $Draw::pH/2}]
-		$Draw::wPath.cC moveto all $x $y
-		#[set y [expr { $y? :}]]
-	}
 	proc updateAndExtractCoords {} {
 		Draw::onConfigure
 		foreach i $Draw::pCoords j [list pX pY pX2 pY2] {
@@ -1647,6 +1647,41 @@ namespace eval Document {
 			#puts [info body Draw::onConfigure]
 		}
 	}
+	
+	# # # # # # # # # # # # # # # 
+	Toolbar::addToDrawBar {ReliefButton::new #bCenter} -text {Center Pages} -WhenOn Document::activateCenter -WhenOff Document::deactivateCenter
+	# # # # # # # # # # # # # # # 
+	
+	proc deactivateCenter {} {
+		set _body [split [bind $Draw::wPath.cC <Configure>] \n ]
+		set _pattern {Document::centerDocument*}
+		set i [lsearch -glob $_body $_pattern]
+		if {$i != {-1}} {
+			set _body [lreplace $_body $i $i]
+		}
+		Util::verbose
+	}
+	proc activateCenter {} {
+		set _pattern {Document::centerDocument %w %h}
+		set _body [bind $Draw::wPath.cC <Configure> ]
+		if {[string first $_pattern $_body ] == {-1}} {
+			bind $Draw::wPath.cC <Configure> "+$_pattern"
+		}
+		Util::verbose
+	}
+	proc centerDocument [list w h] {
+		#Draw::updateAndExtractCoords
+		puts Centered
+		set docCount $Document::activeDocCount
+		if ![dict exists $Document::documentPageCount $docCount] {return}
+		# what if pages of different widths
+		set pageW [dict get $Page::w 1^1]
+		set x [expr {$w /2 - $pageW/2}]
+		#set y [expr {$Draw::cH/2 - $Draw::pH/2}]
+		$Draw::wPath.cC moveto _$docCount	$x {}
+		#[set y [expr { $y? :}]]
+	}
+	
 }
 namespace eval Page {
 	variable \
@@ -1673,7 +1708,7 @@ namespace eval Page {
 		# page No.
 		set pageCount [dict get $Document::documentPageCount $docCount]
 		
-		set id [$Draw::wPath.cC create rectangle [list $Page::startX $Page::startY $x2 $y2 ] -fill {} -outline black]
+		set id [$Draw::wPath.cC create rectangle [list $Page::startX $Page::startY $x2 $y2 ] -fill {} -outline black -tag _$docCount]
 		$Draw::wPath.cC create text [expr $Page::startX +50] [expr $Page::startY + 50 ] -text "Document $docCount"
 		
 		foreach i [list x y w h id x2 y2] j [list Page::startX Page::startY w h id x2 y2] {
