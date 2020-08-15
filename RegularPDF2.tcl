@@ -954,7 +954,7 @@ namespace eval Menu {
 				3 Console \
 				4 About \
 				5 New  \
-				6 {Make a Clone} \
+				6 {Duplicate} \
 				7 Close \
 				8 {Add New Page Above} \
 				9 {Add New Page Below} \
@@ -1060,13 +1060,11 @@ namespace eval Toolbar {
 		
 		foreach i $Toolbar::paneRanges color [list black green red yellow] bName $Toolbar::paneNames {
 			grid [Toolbar::newPayload $Toolbar::f.bB$i -Type ReliefButton::new -text $bName -relief groove -WhenOn "Toolbar::assess" -WhenOff "Toolbar::assess"] -row 0 -column $i -sticky nswe
-			#grid [Toolbar::newPayload $Toolbar::f.lL$i -Type label -text {} -background $color				] -row 1 -column $i -sticky nsw
 		}
 		
 		grid [Toolbar::newPayload $Toolbar::f.lL1 -Type label -text {} -background white				] -row 1 -column 1 -columnspan $Toolbar::paneCount -sticky nsw 
 		grid [Toolbar::newPayload $Toolbar::f.lLEnd -Type label -text {} -background white				] -row 2 -column 1 -columnspan $Toolbar::paneCount -sticky nsw 
-		#Util::bindRegular $Toolbar::f.lL1 Map {Toolbar::moveForeward}
-		#Util::bindRegular $Toolbar::f.lLEnd Unmap {Toolbar::moveBack}
+
 		
 		Util::bindRegular $SecondFrame::wPath Configure {after cancel $Toolbar::onceStopsId ; set Toolbar::onceStopsId [after 50 Toolbar::assess]} 
 		
@@ -1249,8 +1247,7 @@ namespace eval Toolbar {
 	
 	
 	
-	proc foreward {} {}
-	proc backward {} {}
+
 	proc assess [list [list which no] ] {
 		if {$Toolbar::stop} {return}
 		set width [winfo width $SecondFrame::wPath]
@@ -1380,7 +1377,7 @@ namespace eval Draw {
 	
 	$wPath.cC configure -xscrollcommand {$Draw::wPath.sbH set} -yscrollcommand {$Draw::wPath.sbV set}
 	
-	bind $wPath.cC <Configure> Draw::onConfigure
+	bind $wPath.cC <Configure> {Draw::onConfigure %w %h}
 	
 	Util::bindOnce $wPath.cC Map Draw::onMap
 	
@@ -1393,12 +1390,12 @@ namespace eval Draw {
 		::Draw::fontHeight [dict get [font metrics $::Draw::font] -linespace]
 	}
 	
-	proc onConfigure {} {
+	proc onConfigure [list w h] {
 		puts Configured
 		$Draw::wPath.cC configure -scrollregion [$Draw::wPath.cC bbox all]
 		variable \
-		::Draw::cW		%w \
-		::Draw::cH		%h \
+		::Draw::cW		$w \
+		::Draw::cH		$h \
 		::Draw::cZeroX		[$Draw::wPath.cC canvasx 0] \
 		::Draw::cZeroY 		[$Draw::wPath.cC canvasy 0] \
 		#puts [list Draw Configure]
@@ -1594,10 +1591,31 @@ namespace eval Sequence {
 namespace eval Document {
 	variable \
 	activeDocCount No \
-	modded No
+	modded No 	background [$Draw::wPath.cC config -background] 	clearWidget [frame $Draw::wPath.cC.fClear ]		clearId {}
 	
 	variable 	documentRowBegin [dict create]		documentRowEnd		[dict create]		documentPageCount [dict create ]		documentCount 0
 	
+	proc clear {} {
+		if {$Document::clearId eq {}} {
+			place [set l1 [label $Draw::wPath.cC.fClear.lL1 -text {There are curently no active Documents. Please Create a new one by clicking on}]] -x 0 -y 0 -relwidth 1 -relheight 0.5
+			place [set rb1 [ReliefButton::new $Draw::wPath.cC.fClear.rfBX -text {Tabs}]] -x 0 -rely 0.5 -relwidth 1 -relheight 0.5
+			place [set l2 [label $Draw::wPath.cC.fClear.lL2 -text {then}]] -relx 0.3 -rely 0.5 -relwidth 0.3 -relheight 0.5
+			place [set l3 [label $Draw::wPath.cC.fClear.lL3 -text $Icon::Unicode::Plus]] -relx 0.6 -y 0 -relwidth 0.3 -relheight 0.5
+			
+			set Document::clearId [$Draw::wPath.cC create window 0 0 -window $Document::clearWidget]
+			
+			Document::center $Document::clearId
+			
+			#eputs [list 123 [$Draw::wPath.cC bbox $Document::clearId ]]
+		}
+	}
+	proc center [list id] {
+		lassign [$Draw::wPath.cC bbox $id ] x y w h
+		Util::verbose
+		set x [expr {$Draw::cW /2 - $w /2}]
+		set y [expr {$Draw::cH /2 - $h /2}]
+		$Draw::wPath.cC moveto $id $x $y
+	}
 	proc new {} {
 		incr Document::documentCount
 		dict set documentRowBegin $Document::documentCount	$Tabs::newRow
@@ -1653,24 +1671,31 @@ namespace eval Document {
 	# # # # # # # # # # # # # # # 
 	
 	proc deactivateCenter {} {
-		set _body [split [bind $Draw::wPath.cC <Configure>] \n ]
-		set _pattern {Document::centerDocument*}
+		Document::deactivateEventCommand $Draw::wPath.cC <Configure> Document::centerDocument*
+	}
+	proc activateCenter {} {
+		set _pattern {Document::centerDocument %w}
+		Document::activateEventCommand $Draw::wPath.cC <Configure> $_pattern
+		[lindex $_pattern 0] [winfo width $Draw::wPath.cC]
+	}
+	
+	proc deactivateEventCommand [list _widget _event _pattern] {
+		set _body [split [bind $_widget $_event] \n ]
 		set i [lsearch -glob $_body $_pattern]
 		if {$i != {-1}} {
 			set _body [lreplace $_body $i $i]
-			bind $Draw::wPath.cC <Configure> $_body
+			bind $_widget $_event $_body
 		}
-		Util::verbose
+		#Util::verbose
 	}
-	proc activateCenter {} {
-		set _pattern {Document::centerDocument %w %h}
-		set _body [bind $Draw::wPath.cC <Configure> ]
+	proc activateEventCommand [list _widget _event _pattern] {
+		set _body [bind $_widget $_event ]
 		if {[string first $_pattern $_body ] == {-1}} {
-			bind $Draw::wPath.cC <Configure> "+$_pattern"
+			bind $_widget $_event "+$_pattern"	
 		}
-		Util::verbose
+		#Util::verbose
 	}
-	proc centerDocument [list w h] {
+	proc centerDocument [list w] {
 		#Draw::updateAndExtractCoords
 		puts Centered
 		set docCount $Document::activeDocCount
@@ -1891,6 +1916,7 @@ proc doLast {} {
 	
 	# Todo: Fix Tooltip
 	Tooltip::new $Tabs::wPath.bAdd {Create a New Document} {}
+	#Document::clear
 }
 
 
