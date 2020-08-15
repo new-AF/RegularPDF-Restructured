@@ -1658,6 +1658,7 @@ namespace eval Document {
 		set i [lsearch -glob $_body $_pattern]
 		if {$i != {-1}} {
 			set _body [lreplace $_body $i $i]
+			bind $Draw::wPath.cC <Configure> $_body
 		}
 		Util::verbose
 	}
