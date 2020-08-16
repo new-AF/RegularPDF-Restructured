@@ -1301,6 +1301,11 @@ namespace eval Toolbar {
 		grid rowconfigure $Toolbar::wPath2.fDrawBar all -weight 1 -uniform 1
 		
 	}
+	proc invoke {name} {
+		set parent $Toolbar::wPath2.fDrawBar
+		set name ${parent}.$name
+		$name invoke
+	}
 
 } ; # End of Toolbar
 
@@ -1379,19 +1384,23 @@ namespace eval Draw {
 	
 	bind $wPath.cC <Configure> {Draw::onConfigure %w %h}
 	
-	Util::bindOnce $wPath.cC Map Draw::onMap
+	Util::bindOnce $wPath.cC Map Draw::onMapOnce
 	
-	proc onMap {} {
+	proc onMapOnce {} {
 		variable \
 		::Draw::textTest 	[$Draw::wPath.cC create text 0 0 -text test -fill {}]
 		variable \
 		::Draw::font 		[$Draw::wPath.cC itemcget $Draw::textTest -font] 
 		variable \
 		::Draw::fontHeight [dict get [font metrics $::Draw::font] -linespace]
+		
+		Document::clear
+		#Document::activateCenter
+		Toolbar::invoke bCenter
 	}
 	
 	proc onConfigure [list w h] {
-		puts Configured
+		#puts Draw::onConfigured
 		$Draw::wPath.cC configure -scrollregion [$Draw::wPath.cC bbox all]
 		variable \
 		::Draw::cW		$w \
@@ -1471,6 +1480,14 @@ namespace eval Tools {
 	pack [ttk::separator	$wPath.ttkspH -orient horizontal] -fill x
 	pack [button			$wPath.bB1 -text $Icon::Unicode::HorizontalLines -command {HLines::new}  -relief flat -overrelief groove] -fill x
 	Tooltip::new $wPath.bB1 {Guiding Horizontal Lines} {A grid's horizontal lines which facilitate writing text onto multiple lines.}
+	
+	Util::bindOnce $wPath.ttkspH Configure {Tools::ttkspHMapOnce %y}
+	proc ttkspHMapOnce {y} {
+		# Page's default y coordinate
+		set ::Page::defaultY [expr {$y + int([$Draw::wPath.cC canvasy 0])}]
+		#set ::Page::defaultY $y
+		#puts [list ====== $Page::defaultY]
+	}
 }
 namespace eval Properties {
 	variable \
@@ -1595,6 +1612,16 @@ namespace eval Document {
 	
 	variable 	documentRowBegin [dict create]		documentRowEnd		[dict create]		documentPageCount [dict create ]		documentCount 0
 	
+	proc traceADC {thisProcName empty operation} {
+		#puts [list $thisProcName $operation]
+		docButtonClick
+	}
+	trace add variable Document::activeDocCount write Document::traceADC
+	proc docButtonClick {} {
+		$Draw::wPath.cC itemconfig all -state hidden
+		$Draw::wPath.cC itemconfig _$Document::activeDocCount -state normal
+		Draw::onConfigure [winfo width $Draw::wPath.cC] [winfo height $Draw::wPath.cC]
+	}
 	proc updateScrollRegion {} {
 		$Draw::wPath.cC config -scrollregion [$Draw::wPath.cC bbox all]
 	}
@@ -1634,7 +1661,7 @@ namespace eval Document {
 		Document::updateScrollRegion
 	}
 	proc clearMap {W} {
-		puts mapped
+		#puts clearMapped
 		lassign [list [winfo reqwidth $W] [winfo reqheight $W] ] w h
 		foreach i [winfo children $W] {$i config -state disabled}
 		#Util::verbose
@@ -1678,7 +1705,7 @@ namespace eval Document {
 		
 		Page::new $Document::documentCount No
 		
-		Document::modDraw'sOnConfigure
+		Document::hideClear
 		
 		#Tabs::newPage [incr Tabs::newRow]
 		
@@ -1686,13 +1713,14 @@ namespace eval Document {
 	}
 	proc bbox [list docCount] {
 		# No. of pages docCount has
+		Util::verbose
 		if ![dict exists $Document::documentPageCount $docCount] {return}
 		set count [dict get $Document::documentPageCount $docCount]
 		# First page & last pages of $docCount
 		set a $docCount^1
 		set b $docCount^$count
 		set _return [list [dict get $Page::x $a] [dict get $Page::y $a] [dict get $Page::x2 $b] [dict get $Page::y2 $b] ]
-		#Util::verbose
+		
 		return $_return
 		
 	}
@@ -1731,12 +1759,14 @@ namespace eval Document {
 	
 	proc deactivateEventCommand [list _widget _event _pattern] {
 		set _body [split [bind $_widget $_event] \n ]
+		#Util::verbose
 		set i [lsearch -glob $_body $_pattern]
 		if {$i != {-1}} {
 			set _body [lreplace $_body $i $i]
+			set _body [join $_body \n]
 			bind $_widget $_event $_body
 		}
-		#Util::verbose
+		#
 	}
 	proc activateEventCommand [list _widget _event _pattern] {
 		set _body [bind $_widget $_event ]
@@ -1747,7 +1777,7 @@ namespace eval Document {
 	}
 	proc centerDocument [list w] {
 		#Draw::updateAndExtractCoords
-		puts Centered
+		#puts Centered
 		set docCount $Document::activeDocCount
 		if ![dict exists $Document::documentPageCount $docCount] {return}
 		# what if pages of different widths
@@ -1758,12 +1788,12 @@ namespace eval Document {
 		#[set y [expr { $y? :}]]
 	}
 	
+	
 }
 namespace eval Page {
 	variable \
-	origY No \
-	startX 11 \
-	startY 11 \
+	activePage No \
+	defaultY No \
 	id [dict create] \
 	x [dict create] \
 	y [dict create] \
@@ -1774,24 +1804,33 @@ namespace eval Page {
 	padY 50
 	
 	proc new [list docCount _row [list w 300] [list h 500] ] {
-		if !$Page::origY {
-			set Page::origY [winfo y $Tools::wPath.ttkspH]
-			set Page::startY $Page::origY
+		
+		set x 0
+		set x2 [expr {$x + $w}]
+		set y 0
+		set y2 $h
+		if ![dict exists $Document::documentPageCount $docCount] {
+			dict set Document::documentPageCount $docCount 1
+			incr y $Page::defaultY
+			incr y2 $Page::defaultY
+		} else {
+			dict incr Document::documentPageCount $docCount
+			incr y $Page::padY
+			incr y2 $Page::padY
+			incr y [dict get $Page::y2]
+			incr y2 [dict get $Page::y2]
 		}
-		set x2 [expr {$Page::startX + $w}]
-		set y2 [expr {$Page::startY + $h}]
-		if ![dict exists $Document::documentPageCount $docCount] {dict set Document::documentPageCount $docCount 1} else {dict incr Document::documentPageCount $docCount}
 		# page No.
 		set pageCount [dict get $Document::documentPageCount $docCount]
 		
-		set id [$Draw::wPath.cC create rectangle [list $Page::startX $Page::startY $x2 $y2 ] -fill {} -outline black -tag _$docCount]
-		$Draw::wPath.cC create text [expr $Page::startX +50] [expr $Page::startY + 50 ] -text "Document $docCount"
+		set id [$Draw::wPath.cC create rectangle [list $x $y $x2 $y2 ] -fill {} -outline black -tag _$docCount]
+		#$Draw::wPath.cC create text [expr $Page::startX +50] [expr $Page::startY + 50 ] -text "Document $docCount"
 		
-		foreach i [list x y w h id x2 y2] j [list Page::startX Page::startY w h id x2 y2] {
+		foreach i [list x y w h id x2 y2] j [list x y w h id x2 y2] {
 			dict set Page::$i $docCount^$pageCount [set $j]
 		}
-		incr Page::startY $Page::padY
-		incr Page::startY $h
+		#incr Page::startY $Page::padY
+		#incr Page::startY $h
 		
 		Tabs::newPage $docCount $pageCount $_row
 	}
@@ -1896,11 +1935,10 @@ namespace eval Tabs {
 	proc newDocument {} {
 		
 		set Document::activeDocCount $Document::documentCount
-		# redundant; once is enough
-		Document::modDraw'sOnConfigure
+		
 		# a -> Page 1
 		# b -> ... (Dot Menu Button)
-		set a [radiobutton		$Tabs::wPath.bD$Document::documentCount		-text "Document $Document::documentCount" -indicatoron 0  -variable Document::activeDocCount -value $Document::documentCount  -command Draw::onConfigure]
+		set a [radiobutton		$Tabs::wPath.bD$Document::documentCount		-text "Document $Document::documentCount" -indicatoron 0  -variable Document::activeDocCount -value $Document::documentCount   ]
 		# redundant 
 		# Draw::onConfigure
 		
