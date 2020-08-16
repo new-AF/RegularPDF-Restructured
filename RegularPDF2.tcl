@@ -1591,30 +1591,80 @@ namespace eval Sequence {
 namespace eval Document {
 	variable \
 	activeDocCount No \
-	modded No 	background [$Draw::wPath.cC config -background] 	clearWidget [frame $Draw::wPath.cC.fClear ]		clearId {}
+	modded No 	background [$Draw::wPath.cC config -background]		clearId {}
 	
 	variable 	documentRowBegin [dict create]		documentRowEnd		[dict create]		documentPageCount [dict create ]		documentCount 0
 	
+	proc updateScrollRegion {} {
+		$Draw::wPath.cC config -scrollregion [$Draw::wPath.cC bbox all]
+	}
+	proc trackCenter {enable func} {
+		"Document::[expr {$enable == 1? {} : {de}}]activateEventCommand" $Draw::wPath.cC <Configure> $func
+	}
 	proc clear {} {
 		if {$Document::clearId eq {}} {
-			place [set l1 [label $Draw::wPath.cC.fClear.lL1 -text {There are curently no active Documents. Please Create a new one by clicking on}]] -x 0 -y 0 -relwidth 1 -relheight 0.5
-			place [set rb1 [ReliefButton::new $Draw::wPath.cC.fClear.rfBX -text {Tabs}]] -x 0 -rely 0.5 -relwidth 1 -relheight 0.5
-			place [set l2 [label $Draw::wPath.cC.fClear.lL2 -text {then}]] -relx 0.3 -rely 0.5 -relwidth 0.3 -relheight 0.5
-			place [set l3 [label $Draw::wPath.cC.fClear.lL3 -text $Icon::Unicode::Plus]] -relx 0.6 -y 0 -relwidth 0.3 -relheight 0.5
+			variable ::Document::parentClearWidget [frame $Draw::wPath.cC.fP]
+			variable ::Document::clearWidget [frame $Draw::wPath.cC.fP.fClear ]
 			
-			set Document::clearId [$Draw::wPath.cC create window 0 0 -window $Document::clearWidget]
+			grid [set l1 [label $Document::clearWidget.lL1 -text "There are curently no active Documents.\nTo create a new Document Plaese click on"]] -row 0 -column 0 -columnspan 3 -sticky we
+			grid [set rb1 [ReliefButton::new $Document::clearWidget.rfBX -text {Tabs}]] -row 1 -column 0 -columnspan 1 -sticky we
+			grid [set l2 [label $Document::clearWidget.lL2 -text {then}]] -row 1 -column 1 -columnspan 1 -sticky we
+			grid [set l3 [label $Document::clearWidget.lL3 -text $Icon::Unicode::Plus]] -row 1 -column 2 -columnspan 1 -sticky we
+			
+			grid columnconfigure $Document::clearWidget all -weight 1 -uniform 1
+			
+			place $Document::clearWidget -x 0 -y 0 -relwidth 1 -relheight 1
+			
+			set Document::clearId [$Draw::wPath.cC create window 0 0 -window $Document::parentClearWidget]
 			
 			Document::center $Document::clearId
 			
 			#eputs [list 123 [$Draw::wPath.cC bbox $Document::clearId ]]
+			
+			Util::bindOnce $Document::clearWidget Map {Document::clearMap %W}
 		}
+	}
+	proc hideClear {} {
+		$Draw::wPath.cC itemconfig $Document::clearId -width 0 -height 0
+		Document::updateScrollRegion
+	}
+	proc showClear {} {
+		lassign [list [winfo reqwidth $Document::clearWidget] [winfo reqheight $Document::clearWidget] ] w h
+		$Draw::wPath.cC itemconfig $Document::clearId -width $w -height $h
+		Document::updateScrollRegion
+	}
+	proc clearMap {W} {
+		puts mapped
+		lassign [list [winfo reqwidth $W] [winfo reqheight $W] ] w h
+		foreach i [winfo children $W] {$i config -state disabled}
+		#Util::verbose
+		#Document::center2X $Document::clearId $w
+		$Draw::wPath.cC itemconfig $Document::clearId -width $w -height $h
+		Document::updateScrollRegion
+		Document::trackCenter 1 "Document::center2X $Document::clearId $w"
 	}
 	proc center [list id] {
 		lassign [$Draw::wPath.cC bbox $id ] x y w h
-		Util::verbose
+		#Util::verbose
 		set x [expr {$Draw::cW /2 - $w /2}]
 		set y [expr {$Draw::cH /2 - $h /2}]
 		$Draw::wPath.cC moveto $id $x $y
+	}
+	proc center2 [list id w h] {
+		#Util::verbose
+		set x [expr {$Draw::cW /2 - $w /2}]
+		set y [expr {$Draw::cH /2 - $h /2}]
+		$Draw::wPath.cC moveto $id $x $y
+	}
+	proc center2X [list id w] {
+		#Util::verbose
+		set x [expr {$Draw::cW /2 - $w /2}]
+		$Draw::wPath.cC moveto $id $x {}
+	}
+	proc center2Y [list id h] {
+		#Util::verbose
+		set y [expr {$Draw::cH /2 - $h /2}]
+		$Draw::wPath.cC moveto $id {} $y
 	}
 	proc new {} {
 		incr Document::documentCount
@@ -1916,7 +1966,7 @@ proc doLast {} {
 	
 	# Todo: Fix Tooltip
 	Tooltip::new $Tabs::wPath.bAdd {Create a New Document} {}
-	#Document::clear
+	
 }
 
 
