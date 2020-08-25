@@ -21,6 +21,29 @@ package require Tk
 # ttkSG =>	ttk::sizegrip
 # ttkSP	=>	ttk::separator
 
+oo::class create ScrollableCanvas {
+	variable f c sbv sbh
+	constructor master {
+		set f [frame $master.f ]
+		set c [canvas $f.c]
+		set sbv [scrollbar $f.sbv -orient vertical -command {$c yview}]
+		set sbh [scrollbar $f.sbh -horizontal vertical -command {$c yview}]
+		
+		$c config xscrollcommand {$sbh set} -yscrollcommand {$sbv set}
+		
+		pack $sbv -side right -fill y
+		pack $sbh -side bottom -fill x
+		pack $c -side top -expand 1 -fill both
+	}
+	method updatesregion {{tag all} {bbox 1}} {
+		$c config -scrollregion [expr { $bbox == 1 ? $tag : $bbox  }]
+	}
+	method get {what} {
+		return [set $what]
+	}
+	
+}
+
 proc eputs args {error $args}
 namespace eval RootWindow {
 	
@@ -1397,6 +1420,8 @@ namespace eval Draw {
 		Document::clear
 		#Document::activateCenter
 		Toolbar::invoke bCenter
+		#Toolbar::invoke bDarken
+		set Document::prevW [winfo width $Draw::wPath.cC]
 	}
 	
 	proc onConfigure [list w h] {
@@ -1409,6 +1434,7 @@ namespace eval Draw {
 		::Draw::cZeroY 		[$Draw::wPath.cC canvasy 0] \
 		#puts [list Draw Configure]
 		#eputs $Draw::pCoords
+		Document::moveAll $w
 	}
 	
 	proc updateAndExtractCoords {} {
@@ -1608,7 +1634,7 @@ namespace eval Sequence {
 namespace eval Document {
 	variable \
 	activeDocCount No \
-	modded No 	background [$Draw::wPath.cC config -background]		clearId {}
+	modded No 	background [$Draw::wPath.cC config -background]		clearId {}		followId follower		prevW 0
 	
 	variable 	documentRowBegin [dict create]		documentRowEnd		[dict create]		documentPageCount [dict create ]		documentCount 0
 	
@@ -1746,6 +1772,7 @@ namespace eval Document {
 	
 	# # # # # # # # # # # # # # # 
 	Toolbar::addToDrawBar {ReliefButton::new #bCenter} -text {Center Pages} -WhenOn Document::activateCenter -WhenOff Document::deactivateCenter
+	#Toolbar::addToDrawBar {ReliefButton::new #bDarken} -text {Match Pages Background}
 	# # # # # # # # # # # # # # # 
 	
 	proc deactivateCenter {} {
@@ -1776,19 +1803,41 @@ namespace eval Document {
 		#Util::verbose
 	}
 	proc centerDocument [list w] {
-		#Draw::updateAndExtractCoords
+
 		#puts Centered
 		set docCount $Document::activeDocCount
 		if ![dict exists $Document::documentPageCount $docCount] {return}
-		# what if pages of different widths
 		set pageW [dict get $Page::w 1^1]
 		set x [expr {$w /2 - $pageW/2}]
-		#set y [expr {$Draw::cH/2 - $Draw::pH/2}]
 		$Draw::wPath.cC moveto _$docCount	$x {}
-		#[set y [expr { $y? :}]]
+		$Draw::wPath.cC moveto $Document::followId	[expr $x + 5] {}
+		#Util::verbose
 	}
 	
 	
+	proc moveAll {w} {
+		$Draw::wPath.cC move all [expr {$w - $Document::prevW}] 0
+		set Document::prevW $w
+	}
+	proc follower [list id] {
+		if {[$Draw::wPath.cC find withtag $Document::followId] eq {}} {
+			$Draw::wPath.cC create rectangle  0 0 1 1 -tag $Document::followId -outline black -fill gray -stipple gray75 -state hidden
+		}
+		set id [dict get $Page::id $id]
+		$Draw::wPath.cC itemconfig $Document::followId -tag [set Document::followId follow_$id]
+		lassign [$Draw::wPath.cC bbox $id] x y x2 y2
+		Util::verbose
+		foreach i [list x y x2 y2] {
+			set $i [::tcl::mathfunc::int [set $i]]
+		}
+		incr x 5
+		incr x2 5
+		incr y -5
+		incr y2 -5
+		$Draw::wPath.cC coords $Document::followId [list $x $y $x2 $y2] 
+		$Draw::wPath.cC itemconfig $Document::followId -state normal
+		$Draw::wPath.cC lower $Document::followId $id
+	}
 }
 namespace eval Page {
 	variable \
@@ -1823,7 +1872,7 @@ namespace eval Page {
 		# page No.
 		set pageCount [dict get $Document::documentPageCount $docCount]
 		
-		set id [$Draw::wPath.cC create rectangle [list $x $y $x2 $y2 ] -fill {} -outline black -tag _$docCount]
+		set id [$Draw::wPath.cC create rectangle [list $x $y $x2 $y2 ] -fill [$Draw::wPath.cC cget -background] -outline black -tag _$docCount]
 		#$Draw::wPath.cC create text [expr $Page::startX +50] [expr $Page::startY + 50 ] -text "Document $docCount"
 		
 		foreach i [list x y w h id x2 y2] j [list x y w h id x2 y2] {
@@ -1852,7 +1901,10 @@ namespace eval HLines {
 	}
 	
 	
-	proc new [list page ] {
+	proc new [list [list page {}] ] {
+		if {$page eq {} } {
+			set page 3
+		}
 		lassign [$Draw::wPath.cC coords $page] x y x2 y2
 		#set x [expr { $x ? $x : $Draw::pX }]
 		#set height [expr {$y ? ($Draw::pH - $y) : $Draw::pH }]
@@ -1865,7 +1917,7 @@ namespace eval HLines {
 		# 1 line less
 		set start [expr {int($Draw::fontHeight + $y)}]
 		while {$count < $howMany} {
-			lappend objects [$Draw::wPath.cC create line $x $start $xy $start -dash .]
+			lappend objects [$Draw::wPath.cC create line $x $start $x2 $start -dash .]
 			incr start $Draw::fontHeight
 			incr count
 		}
@@ -1960,7 +2012,7 @@ namespace eval Tabs {
 		place [ttk::separator $Tabs::wPath.fL$row.ttkspH -orient horizontal] -relx 0.5 -rely 0.6  -relheight 1 -relwidth 1
 		grid $Tabs::wPath.fL$row -row $row	-column 0	-sticky	nswe
 		#
-		button		$Tabs::wPath.bP$docCount/$no			-text "Page $no"  -relief flat -overrelief groove -anchor w
+		button		$Tabs::wPath.bP$docCount/$no			-text "Page $no"  -relief flat -overrelief groove -anchor w -command "Document::follower $docCount^$pageCount"
 		button		$Tabs::wPath.bPM$docCount/$no			-text $Icon::Unicode::3Dots -relief flat -overrelief groove	-command "Menu::post $Tabs::wPath.bPM$docCount/$no .mPage"
 		grid		$Tabs::wPath.bP$docCount/$no			-row $row	-column 1 	-sticky we
 		grid		$Tabs::wPath.bPM$docCount/$no			-row $row	-column 2	-sticky	e
