@@ -1,6 +1,32 @@
 set W 700
 set H 400
 
+namespace eval Icon {
+	namespace eval Unicode {
+		variable Dot		"\ud83d\udf84"
+		variable 3Dots		[string repeat $Dot 3] \
+		QuasiFilter			"\u29d6" \
+		UpDart 				"\u2b9d" \
+		DownDart 			"\u2b9f" \
+		DownArrow			"\u25bc" \
+		UpBoldArrow			"\ud83e\udc45" \
+		DownBoldArrow		"\ud83e\udc47" \
+		LeftBarbArrow		"\ud83e\udc60" \
+		Save 				"\ud83d\udcbe" \
+		FolderOpen 			"\ud83d\udcc2" \
+		FolderClosed 		"\ud83d\uddc0" \
+		Back 				"\u2190" \
+		Reload 				"\u21bb" \
+		Folders				"\ud83d\uddc2" \
+		Copyright			"\u00a9" \
+		DoubleHeadedArrow	"\u2194" \
+		NewWindow			"\ud83d\uddd7" \
+		HorizontalLines		"\u25a4" \
+		Check				"\u2713" \
+		Plus				"\u2795"
+	}
+}
+
 proc fcat {args} {
 	return [string cat {*}$args]
 }
@@ -103,9 +129,82 @@ proc fparent {args} {
 }
 
 
+
+oo::class create Tooltip {
+	variable f l dtext text id waitms classname
+	constructor {} {
+		set f [frame ._tooltip -bg {light yellow} -highlightthickness 1 -highlightbackground black -width 100 -height 100]
+		
+		set l [label $f._label ]
+		$l config -wraplength [font measure [$l cget -font] {Horizontal Guiding Lines}]
+		
+		pack $l -side top -expand 1 -fill both
+		
+		set dtext [dict create]
+		set id {}
+		set waitms 500
+		set classname {TooltipClass}
+		
+		bind $classname <Enter> "[self]  enter %W"
+		bind $classname <Leave> "[self]  exit %W"
+		
+		
+	}
+	method on {w t} {
+		set bt [bindtags $w]
+		
+		if {$classname in $bt} {return}
+		
+		dict set dtext $w $t
+		set bt [linsert $bt 2 $classname]
+		
+		bindtags $w $bt
+	}
+	method enter w {
+		if {$id ne {}} {
+			after cancel $id
+		}
+		set id [after $waitms "[self] show $w"]
+		set text [dict get $dtext $w]
+		$l config -text $text
+	}
+	method show w {
+		lassign [list [winfo rootx .] [winfo rooty .] [winfo rootx $w] [winfo rooty $w]] mx my x y
+		
+		set w [winfo width $w]
+		
+		incr x -$mx
+		incr x $w
+		incr y -$my
+		
+		
+		place $f -x $x -y $y
+		
+		puts [list SHOWN $text]
+	}
+	method exit w {
+		#puts EXIT
+		place forget $f
+		
+		after cancel $id
+	}
+	
+}
+
+
+
+
+set main [frame .main]
+pack $main -side top -expand 1 -fill both
+
+
 ; #----------------------------------------------------------------------#
 ; # Top Panedwindow
-set tpaned [ttk::panedwindow .tpaned -orient horizontal]
+
+
+; #----------------------------------------------------------------------#
+; # Top Panedwindow
+set tpaned [ttk::panedwindow [fparent main .tpaned] -orient horizontal]
 pack $tpaned -side top -fill x
 
 ; #----------------------------------------------------------------------#
@@ -130,7 +229,7 @@ pack $cbar -side top -fill x -after $mbar
 
 ; #----------------------------------------------------------------------#
 ; # Bottom Panedwindow
-set bpaned [ttk::panedwindow .bpaned ]
+set bpaned [ttk::panedwindow [fparent main .bpaned] ]
 pack $bpaned -side bottom -expand 1 -fill both
 
 ; #----------------------------------------------------------------------#
@@ -140,8 +239,14 @@ pack $bpaned_left -side left -expand 1 -fill both
 
 ; #----------------------------------------------------------------------#
 ; # Bottom Panedwindow/left frame/tool frame
-set bpaned_left_tool [ttk::labelframe [fparent bpaned_left .tool] -text {Tools} ]
+set bpaned_left_tool [ttk::labelframe [fparent bpaned_left .tool] -text {Tools} -labelanchor n]
 pack $bpaned_left_tool -side left -fill y
+
+set bpaned_left_tool_hlines [ttk::button [fparent bpaned_left_tool .hlines ] -text $Icon::Unicode::HorizontalLines]
+pack $bpaned_left_tool_hlines -side top
+
+$bpaned_left_tool_hlines config -command {console show}
+
 
 ; #----------------------------------------------------------------------#
 ; # Bottom Panedwindow/left frame/canvas
@@ -151,7 +256,13 @@ $bpaned_left_sc executeOn c # config -bg red
 
 $bpaned_left_sc executeOn f pack # -side left -expand 1 -fill both
 
+; #----------------------------------------------------------------------#
+set T [Tooltip new]
+$T on $bpaned_left_tool_hlines  {Horizontal Lines}
+
 fcenter .
+
+
 
 wm title . RegularPDF
 
