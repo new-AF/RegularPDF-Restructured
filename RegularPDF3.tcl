@@ -128,7 +128,48 @@ proc fparent {args} {
 	return $final
 }
 
+proc fsash0 {w {new {}} } {
 
+	return [$w sashpos 0 {*}$new]
+
+}
+
+proc fsasheq {primary w2} {
+	set x [fsash0 $primary]
+	fsash0 $w2 $x
+}
+
+proc fgcoleq {args} {
+	set parent [winfo parent [lindex $args 0]]
+	set last [lindex $args end]
+	
+	set uniform 1
+	
+	
+	if [string is digit $last] {
+		set uniform $last
+		set args [lreplace $args end end]
+	}
+	
+	foreach i $args {
+		grid columnconfigure $parent $i -weight 1 -uniform $uniform
+	}
+}
+
+proc fgrid {args} {
+	set l [llength $args]
+	
+	
+	foreach i [list -col -colspan -st] ii [list -column -columnspan -sticky] {
+		set found [lsearch -exact -all $args $i]
+		foreach j $found {
+			set args [lreplace $args $j $j $ii]
+		}
+	}
+	
+	grid {*}$args
+	
+}
 
 oo::class create Tooltip {
 	variable f l dtext text id waitms classname
@@ -191,16 +232,45 @@ oo::class create Tooltip {
 	
 }
 
-
+oo::class create Tabs {
+	variable f0 f row wid parent c
+	constructor args {
+		lassign $args parent c
+		set row 0
+		set f0 [labelframe $parent.f0 -bg red]
+		set f [ttk::labelframe $f0.f]
+		set h1 [ttk::separator $f.h1 -orient horizontal]
+		set h2 [ttk::separator $f.h2 -orient horizontal]
+		
+		set ban [ttk::label $f.banner -text Tabs]
+		 
+		fgrid $h1 -row [incr row] -col 0 -colspan 4 -st nswe
+		fgrid $ban -row [incr row] -col 0 -colspan 4 -st nswe
+		fgrid $h2 -row [incr row] -col 0 -colspan 4 -st nswe
+		
+		place $f -x 0 -y 0 -relwidth 1 -relheight 1
+		bind $c <Configure> "+ [self] oncon %w %h"
+	}
+	method window {x y} {
+		if ![winfo exists wid] {
+			set wid [$c create window 0 0]
+		}
+		$c itemconfig $wid -window $f0
+		$c moveto $wid $x $y
+		
+	}
+	method oncon {w h} {
+		set x [$c canvasx 0]
+		set y [$c canvasy 0]
+		
+		$c itemconfig $wid -width $w -height $h
+		$c moveto $wid $x $y
+	}
+}
 
 
 set main [frame .main]
 pack $main -side top -expand 1 -fill both
-
-
-; #----------------------------------------------------------------------#
-; # Top Panedwindow
-
 
 ; #----------------------------------------------------------------------#
 ; # Top Panedwindow
@@ -217,6 +287,14 @@ $tpaned add $left
 set right [ttk::labelframe [fparent tpaned .right] -text right ]
 $tpaned add $right
 
+set rb1 [checkbutton [fparent right .rb1] -indicatoron 0 -text Files]
+set rb2 [checkbutton [fparent right .rb2] -indicatoron 0 -text Tabs]
+
+fgrid $rb1 -row 0 -col 0 -st nswe
+fgrid $rb2 -row 0 -col 1 -st nswe
+
+fgcoleq $rb1 $rb2 1
+
 ; #----------------------------------------------------------------------#
 ; # Top Panedwindow/left frame/menu frame
 set mbar [ttk::labelframe [fparent left .mbar] -text Menu ]
@@ -229,21 +307,22 @@ pack $cbar -side top -fill x -after $mbar
 
 ; #----------------------------------------------------------------------#
 ; # Bottom Panedwindow
-set bpaned [ttk::panedwindow [fparent main .bpaned] ]
+set bpaned [ttk::panedwindow [fparent main .bpaned] -orient horizontal]
 pack $bpaned -side bottom -expand 1 -fill both
 
 ; #----------------------------------------------------------------------#
 ; # Bottom Panedwindow/left frame 
 set bpaned_left [ttk::labelframe [fparent bpaned .lbar] -text Left ]
-pack $bpaned_left -side left -expand 1 -fill both
+$bpaned add $bpaned_left 
 
 ; #----------------------------------------------------------------------#
-; # Bottom Panedwindow/left frame/tool frame
+; # Bottom Panedwindow/left frame/tools frame
 set bpaned_left_tool [ttk::labelframe [fparent bpaned_left .tool] -text {Tools} -labelanchor n]
 pack $bpaned_left_tool -side left -fill y
 
-set bpaned_left_tool_hlines [ttk::button [fparent bpaned_left_tool .hlines ] -text $Icon::Unicode::HorizontalLines]
-pack $bpaned_left_tool_hlines -side top
+; # Bottom Panedwindow/left frame/tools frame/HLines
+set bpaned_left_tool_hlines [button [fparent bpaned_left_tool .hlines ] -text $Icon::Unicode::HorizontalLines -relief flat -overrelief groove ]
+pack $bpaned_left_tool_hlines -side top -fill x
 
 $bpaned_left_tool_hlines config -command {console show}
 
@@ -257,6 +336,29 @@ $bpaned_left_sc executeOn c # config -bg red
 $bpaned_left_sc executeOn f pack # -side left -expand 1 -fill both
 
 ; #----------------------------------------------------------------------#
+; # Bottom Panedwindow/right frame
+set bpaned_right [ScrollableCanvas new $bpaned]
+$bpaned add [$bpaned_right get f]
+
+set TABS [Tabs new [$bpaned_right get f] [$bpaned_right get c]]
+$TABS window 0 0
+
+
+bind $bpaned <Map> {
+	set w [winfo reqwidth $main]
+	set w [expr {$w / 2}]
+	puts [list w-> $w]
+	fsash0 %W $w
+	
+	bind %W <Map> {}
+}
+
+bind $bpaned_left <Configure> {
+	fsasheq $bpaned $tpaned
+}
+
+; #----------------------------------------------------------------------#
+
 set T [Tooltip new]
 $T on $bpaned_left_tool_hlines  {Horizontal Lines}
 
