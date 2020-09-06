@@ -1,6 +1,124 @@
 set W 700
 set H 400
 
+proc put args {
+	set len [llength $args]
+	set len [expr {($len / 2)*2}]
+	for {set i 0} {$i < $len} {incr i 2} {
+		
+		set lev [lindex $args $i]
+		if {[string index $lev 0] != {#}} {
+			incr lev
+		}
+		set a [lindex $args $i+1]
+		upvar $lev $a b
+		puts [list  [format %15s $a] -> $b]
+	}
+}
+
+proc dset args {
+if {[llength $args] == 1} {
+	dict create {*}$args {}
+} else {
+	dict set {*}$args
+	}
+}
+
+proc dget args {
+	set a [set [lindex $args 0] ]
+	set args [lremove $args 0 0]
+	dict get $a {*}$args
+}
+
+proc dlappend args {
+	dict lappend {*}$args 
+}
+
+proc dincr args {
+	dict incr {*}$args
+}
+
+
+proc mybool [list args] {
+	set l [llength args]
+	set r [lmap v $args {expr {$v eq no || $v eq {} || $v eq 0}}]
+	if {$l == 1}
+		return [lindex $r 0]
+	return $r
+}
+
+
+proc getrangepath {str r1 r2} {
+	set str [split $str /]
+	set str [lmap v $str {expr {$v eq {} ? [continue] : $v }} ]
+	set str [lrange $str $r1 $r2]
+	set str [join $str .]
+}
+
+proc replace {a b c} {
+	set a [split $a {}]
+	set f [lsearch -exact -all $a $b]
+	foreach v $f {
+		set a [lreplace $a $v $v $c]
+	}
+	set a [join $a {}]
+	return $a
+}
+
+proc widgetname args {
+	set r [lmap v $args {replace $v / .}]
+	set r [join $r {}]
+	return $r
+}
+
+proc chopstring {args} {
+	set delim [lindex $args end]
+	set args [lrange $args 0 end-1]
+	set a [join $args {}]
+	set new [list]
+	while {[set index [string first | $a]] != -1  } {
+		lappend new [string range $a 0 $index-1]
+		set a [string range $a $index+1 end]
+	}
+
+	lappend new [string range $a 0 [string length $a]]
+	
+	return $new
+}
+
+proc chopstring2 {args} {
+	set delim [lindex $args end]
+	set args [lrange $args 0 end-1]
+	set new [list]
+	foreach v $args {
+		set s [split $v $delim]
+		set s [join $s ]
+		lappend new $s
+	}
+	return $new
+}
+
+proc choplist {args} {
+	set delim [lindex $args end]
+	set args [lrange $args 0 end-1]
+	set all [lsearch -exact -not -inline -all $args $delim]
+	return $all
+}
+
+proc widgetmake {args} {
+	set args [choplist $args |]
+	set new [list]
+	foreach v $args {
+		set name [replace [lindex $v 1] / .]
+		lappend new $name
+		#put 0 name
+		set v [lreplace $v 1 1 $name]
+		{*}$v
+	}
+	return $new
+}
+
+widgetmake button /123
 namespace eval Icon {
 	namespace eval Unicode {
 		variable Dot		"\ud83d\udf84"
