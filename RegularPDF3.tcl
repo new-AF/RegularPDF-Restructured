@@ -67,7 +67,6 @@ proc replace {a b c} {
 
 proc widgetname args {
 	set r [lmap v $args {replace $v / .}]
-	set r [join $r {}]
 	return $r
 }
 
@@ -109,16 +108,20 @@ proc widgetmake {args} {
 	set args [choplist $args |]
 	set new [list]
 	foreach v $args {
-		set name [replace [lindex $v 1] / .]
-		lappend new $name
-		#put 0 name
-		set v [lreplace $v 1 1 $name]
-		{*}$v
+		lassign $v type name
+		set v [lrange $args 2 end]
+		set name [widgetname $name]
+		if [string is upper [string index $type 0]] {
+			set type ttk::[string tolower $type]
+		}
+		set this [$type $name {*}$v]
+		lappend new $this 
+		
 	}
 	return $new
 }
 
-widgetmake button /123
+
 namespace eval Icon {
 	namespace eval Unicode {
 		variable Dot		"\ud83d\udf84"
@@ -385,6 +388,8 @@ oo::class create Tabs {
 		$c moveto $wid $x $y
 	}
 }
+
+widgetmake Sizegrip /s
 
 
 set main [frame .main]
