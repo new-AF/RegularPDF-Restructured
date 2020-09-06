@@ -108,35 +108,27 @@ proc choplist {args} {
 	return $all
 }
 
-proc widgetmake {args} {
+proc widgetmake1 {args} {
 	set args [choplist $args |]
-	set new [list]
-	foreach v $args {
-		set manager [list]
-		set geometry [lsearch -glob -all $v \+*] ;#how to get \++
-		foreach index $geometry {
-			set manager [lrange $v $index end]
-			lset manager 0 [string range [lindex $manager 0] 1 end]
-			set v [lrange $v 0 end-1]
-			break
+	set geometry {}
+	foreach line $args {
+	lset line 1 [widgetname [lindex $line 1]]
+		set geometry_index [lsearch -glob $line \+*] ;#how to get \++
+		if {$geometry_index != -1} {
+			set geometry [lrange $line $geometry_index end]
+			lset geometry 0 [string range [lindex $geometry 0] 1 end]
+			set line [lrange $line 0 $geometry_index-1]
+			
 		}
-		#error $manager
-		lassign $v type name
-		set v [lrange $args 2 end]
-		set name [widgetname $name]
-		if [string is upper [string index $type 0]] {
-			set type ttk::[string tolower $type]
-		}
-		set this [$type $name {*}$v]
-		lappend new $this 
-		if [llength>0 $manager] {
-			set manager [linsert $manager 1 $name]
-			#error $manager
-			{*}$manager
-		}
-		
+		#error [list $geometry $line]
+		set tmp [lindex $line 0]
+		lset line 0 [expr {[string is upper [string index $line 0]] ? "ttk::[string tolower $tmp]" : $tmp}]
+		#error [list $geometry $line]
+		set name [{*}$line]
+		{*}[expr {$geometry ne {} ? [linsert $geometry 1 $name] : {}}]
+		return $name
 	}
-	return $new
+	
 }
 
 
@@ -267,15 +259,15 @@ proc fparent {args} {
 	return $final
 }
 
-proc fsash0 {w {new {}} } {
+proc sash0_position_of {w {new {}} } {
 
 	return [$w sashpos 0 {*}$new]
 
 }
 
-proc fsasheq {primary w2} {
-	set x [fsash0 $primary]
-	fsash0 $w2 $x
+proc sash0_equalize {primary replica} {
+	set x [sash0_position_of $primary]
+	sash0_position_of $replica $x
 }
 
 proc fgcoleq {args} {
@@ -407,7 +399,7 @@ oo::class create Tabs {
 	}
 }
 
-widgetmake Sizegrip /s -orient horizontal +pack -side bottom -fill x
+widgetmake1 Sizegrip /s +pack -side bottom -fill x
 
 
 set main [frame .main]
@@ -415,8 +407,7 @@ pack $main -side top -expand 1 -fill both
 
 ; #----------------------------------------------------------------------#
 ; # Top Panedwindow
-set tpaned [ttk::panedwindow [fparent main .tpaned] -orient horizontal]
-pack $tpaned -side top -fill x
+set tpaned [widgetmake1 Panedwindow [widgetname /main/tpaned] -orient horizontal +pack  -side top -fill x]
 
 ; #----------------------------------------------------------------------#
 ; # Top Panedwindow/left frame
@@ -489,13 +480,13 @@ bind $bpaned <Map> {
 	set w [winfo reqwidth $main]
 	set w [expr {$w / 2}]
 	puts [list w-> $w]
-	fsash0 %W $w
+	sash0_position_of %W $w
 	
 	bind %W <Map> {}
 }
 
 bind $bpaned_left <Configure> {
-	fsasheq $bpaned $tpaned
+	sash0_equalize $bpaned $tpaned
 }
 
 ; #----------------------------------------------------------------------#
