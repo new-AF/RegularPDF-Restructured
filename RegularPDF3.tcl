@@ -42,11 +42,15 @@ proc dincr args {
 proc mybool [list args] {
 	set l [llength args]
 	set r [lmap v $args {expr {$v eq no || $v eq {} || $v eq 0}}]
-	if {$l == 1}
+	if {$l == 1} {
 		return [lindex $r 0]
+	}
 	return $r
 }
 
+proc llength>0 {L} {
+	return [expr {[llength $L] > 0}]
+}
 
 proc getrangepath {str r1 r2} {
 	set str [split $str /]
@@ -108,6 +112,15 @@ proc widgetmake {args} {
 	set args [choplist $args |]
 	set new [list]
 	foreach v $args {
+		set manager [list]
+		set geometry [lsearch -glob -all $v \+*] ;#how to get \++
+		foreach index $geometry {
+			set manager [lrange $v $index end]
+			lset manager 0 [string range [lindex $manager 0] 1 end]
+			set v [lrange $v 0 end-1]
+			break
+		}
+		#error $manager
 		lassign $v type name
 		set v [lrange $args 2 end]
 		set name [widgetname $name]
@@ -116,6 +129,11 @@ proc widgetmake {args} {
 		}
 		set this [$type $name {*}$v]
 		lappend new $this 
+		if [llength>0 $manager] {
+			set manager [linsert $manager 1 $name]
+			#error $manager
+			{*}$manager
+		}
 		
 	}
 	return $new
@@ -389,7 +407,7 @@ oo::class create Tabs {
 	}
 }
 
-widgetmake Sizegrip /s
+widgetmake Sizegrip /s -orient horizontal +pack -side bottom -fill x
 
 
 set main [frame .main]
