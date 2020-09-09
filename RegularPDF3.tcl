@@ -1,135 +1,168 @@
-set W 700
-set H 400
+#RegularPDF3
+#a regular pdf document creator
+#author:abdullah fatota
 
-proc put args {
-	set len [llength $args]
-	set len [expr {($len / 2)*2}]
-	for {set i 0} {$i < $len} {incr i 2} {
+namespace eval util {
+	proc put args {
+	for {set i 0 ; set len [expr {([llength $args] / 2)*2}]} {$i < $len} {incr i 2} {
 		
 		set lev [lindex $args $i]
-		if {[string index $lev 0] != {#}} {
-			incr lev
-		}
-		set a [lindex $args $i+1]
-		upvar $lev $a b
-		puts [list  [format %15s $a] -> $b]
-	}
-}
-
-proc dset args {
-if {[llength $args] == 1} {
-	dict create {*}$args {}
-} else {
-	dict set {*}$args
-	}
-}
-
-proc dget args {
-	set a [set [lindex $args 0] ]
-	set args [lremove $args 0 0]
-	dict get $a {*}$args
-}
-
-proc dlappend args {
-	dict lappend {*}$args 
-}
-
-proc dincr args {
-	dict incr {*}$args
-}
-
-
-proc mybool [list args] {
-	set l [llength args]
-	set r [lmap v $args {expr {$v eq no || $v eq {} || $v eq 0}}]
-	if {$l == 1} {
-		return [lindex $r 0]
-	}
-	return $r
-}
-
-proc llength>0 {L} {
-	return [expr {[llength $L] > 0}]
-}
-
-proc getrangepath {str r1 r2} {
-	set str [split $str /]
-	set str [lmap v $str {expr {$v eq {} ? [continue] : $v }} ]
-	set str [lrange $str $r1 $r2]
-	set str [join $str .]
-}
-
-proc replace {a b c} {
-	set a [split $a {}]
-	set f [lsearch -exact -all $a $b]
-	foreach v $f {
-		set a [lreplace $a $v $v $c]
-	}
-	set a [join $a {}]
-	return $a
-}
-
-proc widgetname args {
-	set r [lmap v $args {replace $v / .}]
-	return $r
-}
-
-proc chopstring {args} {
-	set delim [lindex $args end]
-	set args [lrange $args 0 end-1]
-	set a [join $args {}]
-	set new [list]
-	while {[set index [string first | $a]] != -1  } {
-		lappend new [string range $a 0 $index-1]
-		set a [string range $a $index+1 end]
-	}
-
-	lappend new [string range $a 0 [string length $a]]
+		set except #
+		if {[string index $lev 0] != $except} {
+			incr lev }
+		set varname [lindex $args $i+1]
+		upvar $lev $varname var
+		puts [list  [format %15s $varname] -> $var] }
+	} ;#put
 	
-	return $new
+	proc nonempty [list check command] {
+		set result {}
+		if ![expr {$check eq no || $check eq {} || $check eq 0}] {
+			set result [{*}$command] }
+		return $result
+	} ;#nonempty
+	
+	proc semiRandom [list [list subrange 1]] {
+		incr subrange -1
+		if {$subrange < 0} {
+			# Exception, while borrowing some Python nomenclature
+			throw [list Tcl RangeError RANGE_ZERO_OR_LESS] [list RangeError: subrange must be >= 1 Got ($subrange)]
+		}
+		return [string range [::tcl::mathfunc::rand] 2 [expr {$subrange + 2}] ]
+	} ;#semiRandom
+	
+	proc ontrue [list check command] {
+		uplevel 1 "
+			if ![expr {$check eq no || $check eq {} || $check eq 0}] {$command}
+		"
+	} ;#ontrue
+	
+	proc getrangepath {str r1 r2} {
+		set str [split $str /]
+		if {[string index $str 0] eq {/}} {set str [lrange $str 1 end]}
+		if {[string index $str end] eq {/}} {set str [lrange $str 0 end-1]}
+		set str [lrange $str $r1 $r2]
+		set str [join $str .]
+	} ;#getrangepath
+	
+	proc replace {a b c} {
+		set a [split $a {}]
+		set f [lsearch -exact -all $a $b]
+		foreach v $f {
+			set a [lreplace $a $v $v $c]
+		}
+		set a [join $a {}]
+		return $a
+	} ;#replace
+	
+	proc chopstring {args} {
+		set delim [lindex $args end]
+		set args [lrange $args 0 end-1]
+		set a [join $args {}]
+		set new [list]
+		while {[set index [string first | $a]] != -1  } {
+			lappend new [string range $a 0 $index-1]
+			set a [string range $a $index+1 end]
+		}
+	
+		lappend new [string range $a 0 [string length $a]]
+		
+		return $new
+	} ;#chopstring
+	
+	proc chopstring2 {args} {
+		set delim [lindex $args end]
+		set args [lrange $args 0 end-1]
+		set new [list]
+		foreach v $args {
+			set s [split $v $delim]
+			set s [join $s ]
+			lappend new $s
+		}
+		return $new
+	} ;#chopstring2
+	
+	proc choplist {args} {
+		set delim [lindex $args end]
+		set args [lrange $args 0 end-1]
+		set all [lsearch -exact -not -inline -all $args $delim]
+		return $all
+	} ;#choplist
+	
+	proc cat {args} {
+		return [string cat {*}$args]
+	} ;#cat
+	
 }
 
-proc chopstring2 {args} {
-	set delim [lindex $args end]
-	set args [lrange $args 0 end-1]
-	set new [list]
-	foreach v $args {
-		set s [split $v $delim]
-		set s [join $s ]
-		lappend new $s
-	}
-	return $new
-}
-
-proc choplist {args} {
-	set delim [lindex $args end]
-	set args [lrange $args 0 end-1]
-	set all [lsearch -exact -not -inline -all $args $delim]
-	return $all
-}
-
-proc widgetmake1 {args} {
-	set args [choplist $args |]
-	set geometry {}
-	foreach line $args {
-	lset line 1 [widgetname [lindex $line 1]]
-		set geometry_index [lsearch -glob $line \+*] ;#how to get \++
-		if {$geometry_index != -1} {
-			set geometry [lrange $line $geometry_index end]
-			lset geometry 0 [string range [lindex $geometry 0] 1 end]
-			set line [lrange $line 0 $geometry_index-1]
+namespace eval widget {
+		
+		proc name args {
+			set r [lmap v $args {util::replace $v / .}]
+			return $r
+		} ; #widget::name
+	
+		proc make {args} {
+		set args [util::choplist $args |]
+		set geometry {}
+		foreach line $args {
+		lset line 1 [widget::name [lindex $line 1]]
+			set geometry_index [lsearch -glob $line \+*] ;#how to get \++
+			if {$geometry_index != -1} {
+				set geometry [lrange $line $geometry_index end]
+				lset geometry 0 [string range [lindex $geometry 0] 1 end]
+				set line [lrange $line 0 $geometry_index-1]
+				
+			}
+			#error [list $geometry $line]
+			set tmp [lindex $line 0]
+			lset line 0 [expr {[string is upper [string index $line 0]] ? "ttk::[string tolower $tmp]" : $tmp}]
+			#error [list $geometry $line]
+			set name [{*}$line]
+			{*}[expr {$geometry ne {} ? [linsert $geometry 1 $name] : {}}]
+			return $name
+		}
+		
+	} ;#widget::make
+	
+	proc center {widget {w no} {h no}} {
+		set sw [winfo vrootwidth .]
+		set sh [winfo vrootheight .]
+		
+		set s1 {}
+		if {!$w || !$h} {
+			set w [winfo reqwidth $widget]
+			set h [winfo reqheight $widget]
 			
+			append s1 ${w}x${h}
 		}
-		#error [list $geometry $line]
-		set tmp [lindex $line 0]
-		lset line 0 [expr {[string is upper [string index $line 0]] ? "ttk::[string tolower $tmp]" : $tmp}]
-		#error [list $geometry $line]
-		set name [{*}$line]
-		{*}[expr {$geometry ne {} ? [linsert $geometry 1 $name] : {}}]
-		return $name
-	}
+		
+		
+		
+		set x [expr {$sw/2 - $w/2}]
+		set y [expr {$sh/2 - $h/2}]
+		
+		set s +${x}+${y}
+		
+		if {$s1 ne {}} {set s $s1$s }
+		
+		wm geometry $widget $s
+	} ;#center
 	
+	proc sash0_position_of {w {new {}} } {
+	
+		return [$w sashpos 0 {*}$new]
+	
+	} ;#sash0_position_of
+	
+	proc sash0_equalize {primary replica} {
+		set x [widget::sash0_position_of $primary]
+		widget::sash0_position_of $replica $x
+	} ;#sash0_position_of
+
 }
+
+
 
 
 namespace eval Icon {
@@ -158,9 +191,7 @@ namespace eval Icon {
 	}
 }
 
-proc fcat {args} {
-	return [string cat {*}$args]
-}
+
 
 
 oo::class create ScrollableCanvas {
@@ -221,86 +252,7 @@ oo::class create ScrollableCanvas {
 }
 
 
-proc fcenter {widget {w no} {h no}} {
-	set sw [winfo vrootwidth .]
-	set sh [winfo vrootheight .]
-	
-	set s1 {}
-	if {!$w || !$h} {
-		set w [winfo reqwidth $widget]
-		set h [winfo reqheight $widget]
-		
-		append s1 ${w}x${h}
-	}
-	
-	
-	
-	set x [expr {$sw/2 - $w/2}]
-	set y [expr {$sh/2 - $h/2}]
-	
-	set s +${x}+${y}
-	
-	if {$s1 ne {}} {set s $s1$s }
-	
-	wm geometry $widget $s
-}
 
-# concatinates last word (new widget) with previous variable names
-proc fparent {args} {
-	set widget [lindex $args end]
-	set args [lreplace $args end end]
-	
-	set vars [lmap i $args {set ::$i}]
-	
-	lappend vars $widget
-	
-	set final [join $vars {}]
-	
-	return $final
-}
-
-proc sash0_position_of {w {new {}} } {
-
-	return [$w sashpos 0 {*}$new]
-
-}
-
-proc sash0_equalize {primary replica} {
-	set x [sash0_position_of $primary]
-	sash0_position_of $replica $x
-}
-
-proc fgcoleq {args} {
-	set parent [winfo parent [lindex $args 0]]
-	set last [lindex $args end]
-	
-	set uniform 1
-	
-	
-	if [string is digit $last] {
-		set uniform $last
-		set args [lreplace $args end end]
-	}
-	
-	foreach i $args {
-		grid columnconfigure $parent $i -weight 1 -uniform $uniform
-	}
-}
-
-proc fgrid {args} {
-	set l [llength $args]
-	
-	
-	foreach i [list -col -colspan -st] ii [list -column -columnspan -sticky] {
-		set found [lsearch -exact -all $args $i]
-		foreach j $found {
-			set args [lreplace $args $j $j $ii]
-		}
-	}
-	
-	grid {*}$args
-	
-}
 
 oo::class create Tooltip {
 	variable f l dtext text id waitms classname
@@ -399,104 +351,136 @@ oo::class create Tabs {
 	}
 }
 
-widgetmake1 Sizegrip /s +pack -side bottom -fill x
 
+proc create_overall_ui {} {
+	widget::make Sizegrip /s +pack -side bottom -fill x
+	set ::Main [widget::make frame /main +pack -side top -expand 1 -fill both]
+	# Top Panedwindow
+	set ::TopPaned [set top_paned [widget::make Panedwindow $::Main/top_paned -orient horizontal +pack -side top -fill x] ]
+	
+	# Top Panedwindow/left frame
+	set ::TopPaned_Left [set top_paned_left [widget::make Labelframe $::TopPaned/left -text left] ]
+	$top_paned add $top_paned_left
+	
+	# Top Panedwindow/right frame
+	set ::TopPaned_Right [set top_paned_right [widget::make Labelframe $::TopPaned/right -text right] ]
+	$top_paned add $top_paned_right
+	
+	# Bottom Panedwindow
+	set ::BottomPaned [set bottom_paned [widget::make Panedwindow $::Main/bottom_paned -orient horizontal +pack -side bottom -expand 1 -fill both] ]
+	
+	# Bottom Panedwindow/left frame 
+	set ::BottomPaned_Left [set bottom_paned_left [widget::make Labelframe $::BottomPaned/left -text Left]  ]
+	$bottom_paned add $bottom_paned_left
 
-set main [frame .main]
-pack $main -side top -expand 1 -fill both
+}
+proc config_top_paned_right {} {
+	set top_right $::TopPaned_Right
+	# Top Panedwindow/right frame/checkbutton 1
+	set ::TopPaned_Right_Cb1 [set top_right_cb1 [widget::make checkbutton $::TopPaned_Right/cb1  -text Files +grid -row 0 -column 0 -sticky nswe] ]
+	$top_right_cb1 config -indicatoron 0
+	
+	# Top Panedwindow/right frame/checkbutton 2
+	set ::TopPaned_Right_Cb2 [set top_right_cb2 [widget::make checkbutton $::TopPaned_Right/cb2  -text Tabs +grid -row 0 -column 1 -sticky nswe] ]
+	$top_right_cb2 config -indicatoron 0
+	
+	grid columnconfigure $top_right [list 0 1] -weight 1 -uniform 1
+}
 
-; #----------------------------------------------------------------------#
-; # Top Panedwindow
-set tpaned [widgetmake1 Panedwindow [widgetname /main/tpaned] -orient horizontal +pack  -side top -fill x]
+proc config_top_paned_left {} {
+	# Top Panedwindow/left frame/main frame
+	set ::TopPaned_Left_Main [set top_left_main [widget::make Labelframe $::TopPaned_Left/main -text Menu +pack -side top -fill x] ]
+	
+	# Top Panedwindow/left frame/canvas toolbar
+	set ::TopPaned_Left_Cbar [set top_left_cbar [widget::make Labelframe $::TopPaned_Left/cbar -text {Tool bar} +pack -side top -fill x -after $::TopPaned_Left_Main] ]
+}
+proc config_bottom_paned_left {} {
+	#----------------------------------------------------------------------#
+	#bgerror  Error in bgerror: invalid command name "ttk::label"
+	#foreach v [list Panedwindow Button Label Labelframe Separator Scrollbar] {
+	#	rename ttk::[string tolower $v] $v }
+	#----------------------------------------------------------------------#
+	set bottom_paned_left $::BottomPaned_Left
+	# Bottom Panedwindow/left frame/Hlines button
+	# a conscious effort not to nest frame; ideally hlines would be in a separate frame
+	set last_row 0
+	set ::BottomPaned_Left_Hlines [set bottom_paned_left_hlines [widget::make button $::BottomPaned_Left/hlines -text $Icon::Unicode::HorizontalLines +grid -row $last_row -column 0 -sticky nw] ]
+	$bottom_paned_left_hlines config -command {console show} -relief flat -overrelief groove 
+	
+	# Bottom Panedwindow/left frame/canvas
+	set ::BottomPaned_Left_C [set bottom_paned_left_c [widget::make canvas $::BottomPaned_Left/c -bg gray +grid -row $last_row -column 1 -sticky nswe ] ]
+	$bottom_paned_left_c config -xscrollcommand {$::BottomPaned_Left_Hsb set} -yscrollcommand {$::BottomPaned_Left_Vsb set}
+	
+	# Bottom Panedwindow/left frame/vertical scrollbar
+	set ::BottomPaned_Left_Vsb [set bottom_paned_left_sbv [widget::make scrollbar $::BottomPaned_Left/sbv -orient vertical  +grid -row $last_row -column 2 -sticky ns] ]
+	$bottom_paned_left_sbv config -command {$::BottomPaned_Left_C yview}
+	incr last_row
+	
+	# Bottom Panedwindow/left frame/horizontal scrollbar
+	set ::BottomPaned_Left_Hsb [set bottom_paned_left_sbh [widget::make scrollbar $::BottomPaned_Left/sbh -orient horizontal +grid -row $last_row -column 0 -columnspan 3 -sticky we ] ]
+	$bottom_paned_left_sbh config -command {$::BottomPaned_Left_C xview}
+	
+	grid columnconfigure $bottom_paned_left 0 -weight 0 -uniform 0 -pad 10
+	grid columnconfigure $bottom_paned_left 1 -weight 1 -uniform 1
+	grid columnconfigure $bottom_paned_left 2 -weight 0 -uniform 00
+	
+	for {set i 0 } {$i < $last_row} {incr i} {
+		grid rowconfigure $bottom_paned_left $i -weight 0 -uniform x$i }
+	
+	grid rowconfigure $bottom_paned_left [expr {$last_row - 1}] -weight 1
+}
 
-; #----------------------------------------------------------------------#
-; # Top Panedwindow/left frame
-set left [ttk::labelframe [fparent tpaned .left] -text left ]
-$tpaned add $left
+proc config_bottom_paned_right {} {
+	set bottom_paned $::BottomPaned
+	# Bottom Panedwindow/right frame
+	set ::BottomPaned_Right [set bottom_paned_right [widget::make frame $::BottomPaned/right -bg blue +grid -row -0 -column 0 -sticky nswe] ]
+	$bottom_paned add $bottom_paned_right
+	
+	set ::BottomPaned_Right_C [set bottom_paned_right_c [widget::make canvas $::BottomPaned_Right/c -bg blue] ]
+	set ::BottomPaned_Right_Vsb [set bottom_paned_right_sbv [widget::make scrollbar $::BottomPaned_Right/sbv -orient vertical -command {$bottom_paned_right_c yview} ] ]
+	set ::BottomPaned_Right_Hsb [set bottom_paned_right_sbh [widget::make scrollbar $::BottomPaned_Right/sbh -orient horizontal -command {$bottom_paned_right_c xview} ] ]
+	$bottom_paned_right_c config -xscrollcommand {$::BottomPaned_Right_Hsb set} -yscrollcommand {$::BottomPaned_Right_Vsb set} 
+	
+	grid $bottom_paned_right_c -row 0 -column 0 -sticky nswe
+	grid $bottom_paned_right_sbv -row 0 -column 1 -rowspan 2 -sticky ns
+	grid $bottom_paned_right_sbh -row 1 -column 0 -columnspan 2 -sticky we
+	
+	grid columnconfigure $bottom_paned_right 0 -weight 1 -uniform 1
+	grid rowconfigure $bottom_paned_right 0 -weight 1 -uniform 1
+	grid columnconfigure $bottom_paned_right 1 -weight 0 -uniform 00
+	grid rowconfigure $bottom_paned_right 1 -weight 0 -uniform 00
 
-; #----------------------------------------------------------------------#
-; # Top Panedwindow/right frame
-set right [ttk::labelframe [fparent tpaned .right] -text right ]
-$tpaned add $right
+}
 
-set rb1 [checkbutton [fparent right .rb1] -indicatoron 0 -text Files]
-set rb2 [checkbutton [fparent right .rb2] -indicatoron 0 -text Tabs]
-
-fgrid $rb1 -row 0 -col 0 -st nswe
-fgrid $rb2 -row 0 -col 1 -st nswe
-
-fgcoleq $rb1 $rb2 1
-
-; #----------------------------------------------------------------------#
-; # Top Panedwindow/left frame/menu frame
-set mbar [ttk::labelframe [fparent left .mbar] -text Menu ]
-pack $mbar -side top -fill x
-
-; #----------------------------------------------------------------------#
-; # Top Panedwindow/left frame/canvas toolbar
-set cbar [ttk::labelframe [fparent left .cbar] -text {Tool bar} ]
-pack $cbar -side top -fill x -after $mbar
-
-; #----------------------------------------------------------------------#
-; # Bottom Panedwindow
-set bpaned [ttk::panedwindow [fparent main .bpaned] -orient horizontal]
-pack $bpaned -side bottom -expand 1 -fill both
-
-; #----------------------------------------------------------------------#
-; # Bottom Panedwindow/left frame 
-set bpaned_left [ttk::labelframe [fparent bpaned .lbar] -text Left ]
-$bpaned add $bpaned_left 
-
-; #----------------------------------------------------------------------#
-; # Bottom Panedwindow/left frame/tools frame
-set bpaned_left_tool [ttk::labelframe [fparent bpaned_left .tool] -text {Tools} -labelanchor n]
-pack $bpaned_left_tool -side left -fill y
-
-; # Bottom Panedwindow/left frame/tools frame/HLines
-set bpaned_left_tool_hlines [button [fparent bpaned_left_tool .hlines ] -text $Icon::Unicode::HorizontalLines -relief flat -overrelief groove ]
-pack $bpaned_left_tool_hlines -side top -fill x
-
-$bpaned_left_tool_hlines config -command {console show}
-
-
-; #----------------------------------------------------------------------#
-; # Bottom Panedwindow/left frame/canvas
-set bpaned_left_sc [ScrollableCanvas new $bpaned_left]
-
-$bpaned_left_sc executeOn c # config -bg red
-
-$bpaned_left_sc executeOn f pack # -side left -expand 1 -fill both
-
-; #----------------------------------------------------------------------#
-; # Bottom Panedwindow/right frame
-set bpaned_right [ScrollableCanvas new $bpaned]
-$bpaned add [$bpaned_right get f]
-
-set TABS [Tabs new [$bpaned_right get f] [$bpaned_right get c]]
-$TABS window 0 0
-
-
-bind $bpaned <Map> {
-	set w [winfo reqwidth $main]
+proc bottom_paned_onmap {W} {
+	set w [winfo reqwidth $::Main]
 	set w [expr {$w / 2}]
 	puts [list w-> $w]
-	sash0_position_of %W $w
+	widget::sash0_position_of $W $w
 	
-	bind %W <Map> {}
+	bind $W <Map> {}
 }
 
-bind $bpaned_left <Configure> {
-	sash0_equalize $bpaned $tpaned
+proc bottom_paned_onconfig {} {
+	widget::sash0_equalize $::BottomPaned $::TopPaned
 }
 
-; #----------------------------------------------------------------------#
+proc start {} {
+	set ::T [Tooltip new]
+	
+	create_overall_ui
+	config_top_paned_left
+	config_top_paned_right
+	config_bottom_paned_left
+	config_bottom_paned_right
+	
+	$::T on $::BottomPaned_Left_Hlines  {Horizontal Lines}
+	bind $::BottomPaned <Map> {bottom_paned_onmap %W}
+	bind $::BottomPaned_Left <Configure> bottom_paned_onconfig
+	
+	widget::center {.}
+	wm title {.} RegularPDF
+	
+}
 
-set T [Tooltip new]
-$T on $bpaned_left_tool_hlines  {Horizontal Lines}
-
-fcenter .
-
-
-
-wm title . RegularPDF
-
+puts [start]
