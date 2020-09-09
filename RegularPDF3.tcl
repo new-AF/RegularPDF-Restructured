@@ -93,6 +93,24 @@ namespace eval util {
 		return [string cat {*}$args]
 	} ;#cat
 	
+	proc dcreate {name args} {
+		uplevel 1 "
+			set $name [dict create {*}$args] 
+		"
+	} ;#dcreate
+	
+	proc dset {name args} {
+		uplevel 1 "
+			dict set $name {*}$args
+		"
+	} ;#dset
+	
+	proc dget {name args} {
+		ser r [uplevel 1 "
+			dict get $$name {*}$args
+		"]
+		return $r
+	} ;#dget
 }
 
 namespace eval widget {
@@ -114,6 +132,7 @@ namespace eval widget {
 				set line [lrange $line 0 $geometry_index-1]
 				
 			}
+			#puts [list widget::make $geometry $line]
 			#error [list $geometry $line]
 			set tmp [lindex $line 0]
 			lset line 0 [expr {[string is upper [string index $line 0]] ? "ttk::[string tolower $tmp]" : $tmp}]
@@ -307,7 +326,7 @@ oo::class create Tooltip {
 		puts [list SHOWN $text]
 	}
 	method exit w {
-		#puts EXIT
+		#puts TOOLTIP_EXIT
 		place forget $f
 		
 		after cancel $id
@@ -351,6 +370,81 @@ oo::class create Tabs {
 	}
 }
 
+oo::class create Tabs2 {
+	variable h1 h2 banner parent row d dcount dlast  dcb_vars
+	constructor {_parent new_row} {
+		set parent $_parent
+		set row $new_row
+		set d [dict create]
+		set dcount 0
+		set dlast None
+		#set dcb_vars [dict create]
+		
+		set h1 [widget::make Separator $parent/tabs_h1 -orient horizontal +grid -row $row -column 0 -columnspan 3 -sticky we]
+		incr row
+ 		set banner [widget::make label $parent/tabs_banner -text Tabs +grid -row $row -column 0 -columnspan 2 -sticky nswe]
+		set add [widget::make button $parent/tabs_add +grid -row $row -column 2 -columnspan 1 -sticky e]
+		$add config -text $Icon::Unicode::Plus -command "[self] new_doc" -relief flat -overrelief groove
+		incr row
+		set h2 [widget::make Separator $parent/tabs_h2 -orient horizontal +grid -row $row -column 0 -columnspan 3 -sticky we]
+		incr row
+		grid columnconfigure $parent [list 0 1] -weight 1 -uniform 1
+		grid columnconfigure $parent [list 2] -weight 0 -uniform 0
+	
+		#util::dset d []
+	} ;#constructor
+	
+	method new_doc {} {
+		dict set d #$dcount [dict create]
+		dict set d #$dcount label [my new_doc_widget $dcount]
+		incr row
+		dict set d #$dcount pcount 0
+		dict set d #$dcount pages [dict create ]
+		my new_page $dcount
+		incr row
+		incr dcount ;#increment document count
+	} ;#new_doc
+	
+	method new_doc_widget {count} {
+		set w [widget::make checkbutton $parent/tabs_doccb_$count -text "Document $count" +grid -row $row -column 0 -columnspan 3 -sticky nswe]
+		dict set dcb_vars $count 0
+		$w config -indicatoron 0
+		return $w
+	} ;#new_doc_widget
+	
+	method doc_press {count} {
+		my doc_hide all
+		my doc_show count
+	} ;# doc_press
+	
+	method new_page {count } {
+		set pcount [dict get $d #$count pcount] ; #queries $d #count
+		incr pcount
+		dict set d #$count pcount $pcount
+		set w [my new_page_widget $count $pcount]
+		dict set d #$count pages @$pcount $w ;#modifies $d #count pages @pcount
+		return $w
+	} ;#new_page
+	
+	method new_page_widget {c1 c2} {
+		set w [widget::make label $parent/tabs_pagelabel_${c1}_${c2} -text "Page $c2" +grid -row $row -column 0 -columnspan 3 -sticky nswe]
+		grid remove $w
+		return $w
+	} ;#new_page_widget
+	
+	method doc_show {word} {
+		set all [expr {$word eq {all} ? [dict keys $d #* ] : [list $word]}]
+		foreach v $all {
+			set pgs [dict keys [dict get $d #$v] @+]
+			foreach w $pgs { grid remove $w } 
+		}
+	} ;#doc_show
+	
+	method doc_hide {word} {
+		if {$dlast eq {None}} {return}
+		set all none
+	} ;#doc_hode
+} 
 
 proc create_overall_ui {} {
 	widget::make Sizegrip /s +pack -side bottom -fill x
@@ -385,6 +479,7 @@ proc config_top_paned_right {} {
 	$top_right_cb2 config -indicatoron 0
 	
 	grid columnconfigure $top_right [list 0 1] -weight 1 -uniform 1
+	
 }
 
 proc config_top_paned_left {} {
@@ -436,7 +531,9 @@ proc config_bottom_paned_right {} {
 	set ::BottomPaned_Right [set bottom_paned_right [widget::make frame $::BottomPaned/right -bg blue +grid -row -0 -column 0 -sticky nswe] ]
 	$bottom_paned add $bottom_paned_right
 	
-	set ::BottomPaned_Right_C [set bottom_paned_right_c [widget::make canvas $::BottomPaned_Right/c -bg blue] ]
+	set ::BottomPaned_Right_C [set bottom_paned_right_c [widget::make canvas $::BottomPaned_Right/c -bg gray] ]
+	set ::BottomPaned_Right_C_F [set bottom_paned_right_cf [widget::make labelframe $::BottomPaned_Right_C/cf -text {"cf"} -bg gray +pack -side top -fill both -expand 1] ]
+
 	set ::BottomPaned_Right_Vsb [set bottom_paned_right_sbv [widget::make scrollbar $::BottomPaned_Right/sbv -orient vertical -command {$bottom_paned_right_c yview} ] ]
 	set ::BottomPaned_Right_Hsb [set bottom_paned_right_sbh [widget::make scrollbar $::BottomPaned_Right/sbh -orient horizontal -command {$bottom_paned_right_c xview} ] ]
 	$bottom_paned_right_c config -xscrollcommand {$::BottomPaned_Right_Hsb set} -yscrollcommand {$::BottomPaned_Right_Vsb set} 
@@ -468,12 +565,14 @@ proc bottom_paned_onconfig {} {
 proc start {} {
 	set ::T [Tooltip new]
 	
+	
 	create_overall_ui
 	config_top_paned_left
 	config_top_paned_right
 	config_bottom_paned_left
 	config_bottom_paned_right
 	
+	set ::Tabs2 [Tabs2 new $::BottomPaned_Right_C_F 0]
 	$::T on $::BottomPaned_Left_Hlines  {Horizontal Lines}
 	bind $::BottomPaned <Map> {bottom_paned_onmap %W}
 	bind $::BottomPaned_Left <Configure> bottom_paned_onconfig
