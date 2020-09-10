@@ -373,12 +373,15 @@ oo::class create Tabs {
 oo::class create Doc {
 	variable id c count w h
 	constructor {_c _count {_w 400} {_h 400}} {
-		foreach v [list _c _count] {set [string range 1 end] [set $v]} ;#initialize
+		foreach v [list _c _count] {set [string range $v 1 end] [set $v]} ;#initialize
+		puts [list Doc ->constructor]
 	}
 }
 oo::class create Tabs2 {
-	variable h1 h2 banner parent row d dcount dlast  dcb_vars
+	variable h1 h2 banner parent row d p dcount dlast  dcb_vars UP DO
 	constructor {_parent new_row} {
+		my do_label_bind
+		set UP [image create photo -file up.png]
 		set parent $_parent
 		set row $new_row
 		set d [dict create]
@@ -399,9 +402,19 @@ oo::class create Tabs2 {
 	
 		#util::dset d []
 	} ;#constructor
-	
+	method do_label_bind {} {
+		set l [label .test_label]
+		set col [$l cget -bg]
+		destroy $l
+		bind PageLabel <Enter> {set wd %W ; $wd config -bg {light yellow}}
+		bind PageLabel <Leave> "set wd %W ; \$wd config -bg $col"
+
+	}
+
 	method new_doc {} {
-		dict set d #$dcount [dict create pageobjects [dict create] pcount 0 pages [dict create ] cb [my new_doc_widget $dcount] ]
+		dict set d #$dcount [dict create pcount 0 plabels [dict create ] dw {} dwx {} dwo {} collapsed 0 ]
+		my new_doc_widget $dcount
+		grid rowconfigure $parent $row -weight 0 -uniform uniform$row
 		incr row
 		my new_page $dcount
 		incr row
@@ -409,52 +422,59 @@ oo::class create Tabs2 {
 	} ;#new_doc
 	
 	method new_doc_widget {count} {
-		set name tabs_doccb_$count
-		set w [widget::make checkbutton $parent/$name -text "Document $count" +grid -row $row -column 0 -columnspan 3 -sticky nswe]
-		set [self]::dcb_vars::var$count 0
-		$w config -indicatoron 0 -variable [self]::dcb_vars::var$count -command "[self] doc_press $count"
+		set name tabsDoc_$count
+		set name2 tabsDocX_$count
+		set w [widget::make label $parent/$name -text "Document [expr {$count+1}]" -cursor hand2 +grid -row $row -column 0 -columnspan 2 -sticky we]
+		set x [widget::make label $parent/$name2 -text $Icon::Unicode::UpDart -cursor hand2 +grid -row $row -column 2 -columnspan 1 -sticky we]
+		dict set d #$count dw $w
+		dict set d #$count dwx $x
+		bind $w <Button> "[self] doc_press $count"
+		bind $x <Button> "[self] doc_press $count"
 		return $w
 	} ;#new_doc_widget
-	
-	method doc_press {count} {
-		set s [set dcb_vars::var$count]
-		set do [list $dlast $count]
-		if {$s == 1} {set do [lreverse $do]}
-		my doc_show_hide {*}$do
-
-	} ;# doc_press
 	
 	method new_page {count } {
 		set pcount [expr {[dict get $d #$count pcount] + 1}]; #queries $d #count
 		dict set d #$count pcount $pcount
 		set w [my new_page_widget $count $pcount]
-		dict set d #$count pages @$pcount $w ;#modifies $d #count pages @pcount
+		dict set d #$count plabels @$pcount $w ;#modifies $d #count pages @pcount
+		if {$pcount == 1} {dict set f #$count dwo [Doc new $::BottomPaned_Left_C $count]}
 		return $w
 	} ;#new_page
 	
 	method new_page_widget {c1 c2} {
-		set w [widget::make label $parent/tabs_pagelabel_${c1}_${c2} -text "Page $c2" +grid -row $row -column 0 -columnspan 3 -sticky nswe]
-		grid remove $w
+		set name tabsDocPage_${c1}_${c2}
+		set w [widget::make label $parent/$name -text "Page $c2" -cursor hand2 +grid -row $row -column 0 -columnspan 3 -sticky nswe]
+		bindtags $w [linsert [bindtags $w] 2 PageLabel]
+		bind $w <Button> "[self] page_press %W"
 		return $w
 	} ;#new_page_widget
-	
-	method doc_show_hide {show hide} {
+	method doc_press {count} {
+		set s [dict get $d #$count collapsed]
+		set op [lindex [list hide show] $s]
+		my doc_show_hide $op $count
+		dict set d #$count collapsed [expr {!$s}]
+	}
+	method page_press {wd} {
+		puts [list page_press-> $wd]
+	}
+	method doc_show_hide {op count} {
+		if {$op eq {show}} {
+			set com {grid }
+			set lsign $Icon::Unicode::UpDart
+			} else {
+				set com {grid remove }
+				set lsign $Icon::Unicode::DownDart
+			}
 		
-		if {$hide ne {none}} {
-			#puts [list hide-> $show $hide]
-			set hide [expr {$hide eq {all} ? [dict keys $d #* ] : [list $hide]}] 
-			foreach v $hide {
-				set pgs [dict values [dict get $d #$v pages] *]
-				foreach w $pgs { grid remove $w } }
-			if {$dlast in $hide} {set dlast none}
-		} elseif {$show ne {none}} {
-			#puts [list show-> $show $hide]
-			set show [expr {$show eq {all} ? [dict keys $d #+ ] : [list $show]}] 
-			foreach v $show {
-				set pgs [dict values [dict get $d #$v pages] *]
-				foreach w $pgs { grid $w } }
-			set dlast $show
-		}
+		#puts [list hide-> $show $hide]
+		set dwx [dict get $d #$count dwx]
+		set all [dict values [dict get $d #$count plabels] *]
+		foreach wd $all {
+			{*}$com $wd
+			}
+		$dwx config -text $lsign
+	
 	} ;#doc_show_hide
 	
 } 
