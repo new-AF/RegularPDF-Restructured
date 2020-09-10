@@ -370,6 +370,12 @@ oo::class create Tabs {
 	}
 }
 
+oo::class create Doc {
+	variable id c count w h
+	constructor {_c _count {_w 400} {_h 400}} {
+		foreach v [list _c _count] {set [string range 1 end] [set $v]} ;#initialize
+	}
+}
 oo::class create Tabs2 {
 	variable h1 h2 banner parent row d dcount dlast  dcb_vars
 	constructor {_parent new_row} {
@@ -377,8 +383,8 @@ oo::class create Tabs2 {
 		set row $new_row
 		set d [dict create]
 		set dcount 0
-		set dlast None
-		#set dcb_vars [dict create]
+		set dlast none
+		namespace eval dcb_vars {}
 		
 		set h1 [widget::make Separator $parent/tabs_h1 -orient horizontal +grid -row $row -column 0 -columnspan 3 -sticky we]
 		incr row
@@ -395,31 +401,31 @@ oo::class create Tabs2 {
 	} ;#constructor
 	
 	method new_doc {} {
-		dict set d #$dcount [dict create]
-		dict set d #$dcount label [my new_doc_widget $dcount]
+		dict set d #$dcount [dict create pageobjects [dict create] pcount 0 pages [dict create ] cb [my new_doc_widget $dcount] ]
 		incr row
-		dict set d #$dcount pcount 0
-		dict set d #$dcount pages [dict create ]
 		my new_page $dcount
 		incr row
 		incr dcount ;#increment document count
 	} ;#new_doc
 	
 	method new_doc_widget {count} {
-		set w [widget::make checkbutton $parent/tabs_doccb_$count -text "Document $count" +grid -row $row -column 0 -columnspan 3 -sticky nswe]
-		dict set dcb_vars $count 0
-		$w config -indicatoron 0
+		set name tabs_doccb_$count
+		set w [widget::make checkbutton $parent/$name -text "Document $count" +grid -row $row -column 0 -columnspan 3 -sticky nswe]
+		set [self]::dcb_vars::var$count 0
+		$w config -indicatoron 0 -variable [self]::dcb_vars::var$count -command "[self] doc_press $count"
 		return $w
 	} ;#new_doc_widget
 	
 	method doc_press {count} {
-		my doc_hide all
-		my doc_show count
+		set s [set dcb_vars::var$count]
+		set do [list $dlast $count]
+		if {$s == 1} {set do [lreverse $do]}
+		my doc_show_hide {*}$do
+
 	} ;# doc_press
 	
 	method new_page {count } {
-		set pcount [dict get $d #$count pcount] ; #queries $d #count
-		incr pcount
+		set pcount [expr {[dict get $d #$count pcount] + 1}]; #queries $d #count
 		dict set d #$count pcount $pcount
 		set w [my new_page_widget $count $pcount]
 		dict set d #$count pages @$pcount $w ;#modifies $d #count pages @pcount
@@ -432,18 +438,25 @@ oo::class create Tabs2 {
 		return $w
 	} ;#new_page_widget
 	
-	method doc_show {word} {
-		set all [expr {$word eq {all} ? [dict keys $d #* ] : [list $word]}]
-		foreach v $all {
-			set pgs [dict keys [dict get $d #$v] @+]
-			foreach w $pgs { grid remove $w } 
+	method doc_show_hide {show hide} {
+		
+		if {$hide ne {none}} {
+			#puts [list hide-> $show $hide]
+			set hide [expr {$hide eq {all} ? [dict keys $d #* ] : [list $hide]}] 
+			foreach v $hide {
+				set pgs [dict values [dict get $d #$v pages] *]
+				foreach w $pgs { grid remove $w } }
+			if {$dlast in $hide} {set dlast none}
+		} elseif {$show ne {none}} {
+			#puts [list show-> $show $hide]
+			set show [expr {$show eq {all} ? [dict keys $d #+ ] : [list $show]}] 
+			foreach v $show {
+				set pgs [dict values [dict get $d #$v pages] *]
+				foreach w $pgs { grid $w } }
+			set dlast $show
 		}
-	} ;#doc_show
+	} ;#doc_show_hide
 	
-	method doc_hide {word} {
-		if {$dlast eq {None}} {return}
-		set all none
-	} ;#doc_hode
 } 
 
 proc create_overall_ui {} {
