@@ -371,10 +371,38 @@ oo::class create Tabs {
 }
 
 oo::class create Doc {
-	variable id c count w h
-	constructor {_c _count {_w 400} {_h 400}} {
-		foreach v [list _c _count] {set [string range $v 1 end] [set $v]} ;#initialize
-		puts [list Doc ->constructor]
+	variable c dcount pcount maxw pad x0 y0 xlast ylast 
+	constructor {_c _dcount {_w 400} {_h 400}} {
+		foreach v [list _c _dcount _w _h] {set [string range $v 1 end] [set $v]} ;#initialize instance variables
+		set pad $::Left_C_Y
+		set x0 [set y0 $pad]
+		set pcount 0
+		set maxw 0
+		set ylast $pad
+		foreach v [list 1 2 3 4] an [list nw ne se sw] {
+			$c create text 0 0 -text $v -anchor $an -tag x$v -fill {}
+		}
+		
+		puts [list Doc $dcount ->constructor $y0]
+		
+		my newPage $_w $_h
+	}
+	method newPage {w h} {
+		lassign [list $x0 $y0 [expr {$x0 + $w}] [expr {$y0 + $h}] ] x1 y1 x2 y2
+		$c create rectangle $x1 $y1 $x2 $y2 -tag [list d$dcount p$pcount d${dcount}^p${pcount} p]
+		incr pcount
+		if {$w > $maxw} {set maxw $w ; set xlast [expr {$x0 + $maxw + $x0 }]}
+		#if {$h > $maxh} {set maxh $h}
+		incr ylast [expr {$h + $y0}]
+		$c moveto x2 $xlast $y0
+		$c moveto x3 $xlast $ylast
+		$c moveto x4 0 $ylast 
+		my bboxPage
+	}
+	method bboxPage {{which {}}} {
+		set box [list 0 0 $xlast $ylast]
+		
+		$c config -scrollregion $box
 	}
 }
 oo::class create Tabs2 {
@@ -417,6 +445,7 @@ oo::class create Tabs2 {
 		grid rowconfigure $parent $row -weight 0 -uniform uniform$row
 		incr row
 		my new_page $dcount
+		dict set d #$dcount dwo [Doc new $::BottomPaned_Left_C $dcount]
 		incr row
 		incr dcount ;#increment document count
 	} ;#new_doc
@@ -424,8 +453,8 @@ oo::class create Tabs2 {
 	method new_doc_widget {count} {
 		set name tabsDoc_$count
 		set name2 tabsDocX_$count
-		set w [widget::make label $parent/$name -text "Document [expr {$count+1}]" -cursor hand2 +grid -row $row -column 0 -columnspan 2 -sticky we]
-		set x [widget::make label $parent/$name2 -text $Icon::Unicode::UpDart -cursor hand2 +grid -row $row -column 2 -columnspan 1 -sticky we]
+		set w [widget::make label $parent/$name -text "Document [expr {$count+1}]" -cursor hand2 +grid -row $row -column 0 -columnspan 2 -sticky we -pady [list 10 0] ]
+		set x [widget::make label $parent/$name2 -text $Icon::Unicode::UpDart -cursor hand2 +grid -row $row -column 2 -columnspan 1 -sticky we -pady [list 10 0] ]
 		dict set d #$count dw $w
 		dict set d #$count dwx $x
 		bind $w <Button> "[self] doc_press $count"
@@ -438,7 +467,6 @@ oo::class create Tabs2 {
 		dict set d #$count pcount $pcount
 		set w [my new_page_widget $count $pcount]
 		dict set d #$count plabels @$pcount $w ;#modifies $d #count pages @pcount
-		if {$pcount == 1} {dict set f #$count dwo [Doc new $::BottomPaned_Left_C $count]}
 		return $w
 	} ;#new_page
 	
@@ -524,9 +552,7 @@ proc config_top_paned_left {} {
 }
 proc config_bottom_paned_left {} {
 	#----------------------------------------------------------------------#
-	#bgerror  Error in bgerror: invalid command name "ttk::label"
-	#foreach v [list Panedwindow Button Label Labelframe Separator Scrollbar] {
-	#	rename ttk::[string tolower $v] $v }
+	set ::Left_C_Y 50
 	#----------------------------------------------------------------------#
 	set bottom_paned_left $::BottomPaned_Left
 	# Bottom Panedwindow/left frame/Hlines button
@@ -596,6 +622,8 @@ proc bottom_paned_onconfig {} {
 }
 
 proc start {} {
+	set W 400
+	set H 700
 	set ::T [Tooltip new]
 	
 	
@@ -610,7 +638,7 @@ proc start {} {
 	bind $::BottomPaned <Map> {bottom_paned_onmap %W}
 	bind $::BottomPaned_Left <Configure> bottom_paned_onconfig
 	
-	widget::center {.}
+	widget::center {.} $W $H
 	wm title {.} RegularPDF
 	
 }
